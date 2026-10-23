@@ -2,6 +2,7 @@ import {
   CalendarDays,
   GripVertical,
   Inbox,
+  Plug,
   Settings,
   Sparkles,
   Users,
@@ -12,12 +13,19 @@ import { cn } from "../lib/time";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 
-export type NavKey = "calendar" | "missions" | "roles" | "inbox" | "settings";
+export type NavKey =
+  | "calendar"
+  | "missions"
+  | "roles"
+  | "connections"
+  | "inbox"
+  | "settings";
 
 const NAV: { key: NavKey; label: string; icon: typeof CalendarDays; badge?: string }[] = [
   { key: "calendar", label: "Calendar", icon: CalendarDays },
   { key: "missions", label: "Missions", icon: Sparkles },
   { key: "roles", label: "Roles", icon: Users },
+  { key: "connections", label: "Connections", icon: Plug },
   { key: "inbox", label: "Inbox", icon: Inbox },
   { key: "settings", label: "Settings", icon: Settings },
 ];

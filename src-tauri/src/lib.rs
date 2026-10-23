@@ -122,6 +122,53 @@ fn agent_path() -> String {
         .join(":")
 }
 
+fn which_on_agent_path(name: &str) -> Option<PathBuf> {
+    let path = agent_path();
+    for dir in std::env::split_paths(std::ffi::OsStr::new(&path)) {
+        let candidate = dir.join(name);
+        if candidate.is_file() {
+            return Some(candidate);
+        }
+    }
+    None
+}
+
+#[derive(serde::Serialize)]
+struct AgentProbe {
+    id: String,
+    name: String,
+    installed: bool,
+    path: Option<String>,
+    supported: bool,
+}
+
+/// Report which agent CLIs are present. Accounts/sessions come from the
+/// engine's /api/v1/status; this only answers "is the binary installed?".
+#[tauri::command]
+fn detect_agents() -> Vec<AgentProbe> {
+    let defs = [
+        ("claude", "Claude Code", true),
+        ("codex", "Codex", true),
+        ("opencode", "OpenCode", true),
+        ("openclaw", "OpenClaw", true),
+        ("hermes", "Hermes", true),
+        ("cursor-agent", "Cursor Agent", false),
+    ];
+
+    defs.iter()
+        .map(|(id, name, supported)| {
+            let path = which_on_agent_path(id);
+            AgentProbe {
+                id: id.to_string(),
+                name: name.to_string(),
+                installed: path.is_some(),
+                path: path.map(|p| p.to_string_lossy().into_owned()),
+                supported: *supported,
+            }
+        })
+        .collect()
+}
+
 fn engine_script(app: &tauri::AppHandle) -> Option<PathBuf> {    if let Ok(explicit) = std::env::var("OPENCAL_ENGINE") {
         let path = PathBuf::from(explicit);
         if path.exists() {
@@ -225,7 +272,7 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_http::init())
-        .invoke_handler(tauri::generate_handler![engine_token, start_engine])
+        .invoke_handler(tauri::generate_handler![engine_token, start_engine, detect_agents])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

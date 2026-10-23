@@ -1,6 +1,8 @@
 import { invoke } from "@tauri-apps/api/core";
 import { fetch as tauriFetch } from "@tauri-apps/plugin-http";
 import type {
+  AgentProbe,
+  EngineEvent,
   EngineStatus,
   InboxMessage,
   Mission,
@@ -246,4 +248,39 @@ export async function approveProposal(id: string): Promise<Schedule> {
 
 export async function denyProposal(id: string, reason = ""): Promise<void> {
   await send("POST", `/api/v1/proposals/${id}/deny`, { reason });
+}
+
+// ---- connections & live asks ---------------------------------------------
+
+export async function detectAgents(): Promise<AgentProbe[]> {
+  if (!IS_TAURI) return [];
+  try {
+    return await invoke<AgentProbe[]>("detect_agents");
+  } catch {
+    return [];
+  }
+}
+
+export async function fetchEvents(
+  since: number,
+  type?: string,
+): Promise<EngineEvent[]> {
+  const params = new URLSearchParams({ since: String(since), limit: "200" });
+  if (type) params.set("type", type);
+  const data = await get<{ events: EngineEvent[] }>(
+    `/api/v1/events?${params.toString()}`,
+    3000,
+  );
+  return data.events ?? [];
+}
+
+export async function answerAsk(
+  scheduleId: string,
+  askId: string,
+  behavior: "allow" | "deny",
+): Promise<void> {
+  await send("POST", `/api/v1/schedules/${scheduleId}/answer`, {
+    askId,
+    behavior,
+  });
 }

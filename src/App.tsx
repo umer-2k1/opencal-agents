@@ -1,17 +1,20 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { PointerEvent as ReactPointerEvent } from "react";
 import { addDays, addWeeks } from "date-fns";
-import { CheckCircle2, GripVertical } from "lucide-react";
+import { AlertTriangle, CheckCircle2, GripVertical } from "lucide-react";
 import { Header } from "./components/Header";
 import { Sidebar, type NavKey } from "./components/Sidebar";
 import { WeekCalendar } from "./components/WeekCalendar";
 import { JobDrawer } from "./components/JobDrawer";
 import { NewJobDialog } from "./components/NewJobDialog";
+import { ConnectionsPage } from "./pages/Connections";
+import { AskDialog } from "./components/AskDialog";
 import { MissionsPage } from "./pages/Missions";
 import { RolesPage } from "./pages/Roles";
 import { InboxPage } from "./pages/Inbox";
 import { SettingsPage } from "./pages/Settings";
 import {
+  answerAsk,
   createJob,
   engineStarted,
   engineStatus,
@@ -21,7 +24,14 @@ import {
   type NewJobInput,
 } from "./lib/api";
 import { demoSchedules, demoWeek } from "./lib/demo";
-import { AGENTS, agentById, type Provider, type Schedule, type Segment } from "./lib/types";
+import {
+  AGENTS,
+  agentById,
+  type PendingAsk,
+  type Provider,
+  type Schedule,
+  type Segment,
+} from "./lib/types";
 import { HOUR_HEIGHT, startOfWeekMonday } from "./lib/time";
 
 type Mode = "connecting" | "live" | "demo";
@@ -30,6 +40,7 @@ function initialNav(): NavKey {
   const page = new URLSearchParams(window.location.search).get("page");
   return page === "missions" ||
     page === "roles" ||
+    page === "connections" ||
     page === "inbox" ||
     page === "settings"
     ? page
@@ -71,6 +82,13 @@ export default function App() {
     null,
   );
   const [toast, setToast] = useState<Toast | null>(null);
+  const [answering, setAnswering] = useState(false);
+  const [dismissedAsk, setDismissedAsk] = useState<string | null>(null);
+  const [demoAsk, setDemoAsk] = useState<{
+    scheduleId: string;
+    name: string;
+    ask: PendingAsk;
+  } | null>(null);
 
   function notify(message: string, tone: "ok" | "warn" = "ok") {
     setToast({ id: Date.now(), message, tone });
@@ -146,6 +164,20 @@ export default function App() {
     if (shot === "dialog") {
       setDialogStart(new Date());
       setDialogOpen(true);
+    }
+    if (shot === "ask") {
+      setDemoAsk({
+        scheduleId: "demo",
+        name: "Publish weekly changelog",
+        ask: {
+          id: "demo-ask",
+          kind: "permission",
+          tool: "Bash",
+          summary:
+            "The job wants to push the prepared changelog commit to origin/main.",
+          input: { command: "git push origin main" },
+        },
+      });
     }
   }, []);
 
@@ -226,6 +258,37 @@ export default function App() {
       (s) => s.started_at <= now && s.ended_at >= now,
     ).length;
   }, [segments]);
+
+  const pendingAsks = useMemo(() => {
+    const out: { scheduleId: string; name: string; ask: PendingAsk }[] = [];
+    for (const s of schedules) {
+      if (s.status !== "running" || !s.result) continue;
+      try {
+        const audit = JSON.parse(s.result) as { pendingAsk?: PendingAsk };
+        if (audit.pendingAsk?.id) {
+          out.push({
+            scheduleId: s.id,
+            name: s.name ?? "Job",
+            ask: audit.pendingAsk,
+          });
+        }
+      } catch {
+        /* result is not JSON yet */
+      }
+    }
+    return out;
+  }, [schedules]);
+
+  const currentAsk =
+    pendingAsks.find((a) => a.ask.id !== dismissedAsk) ?? null;
+  const effectiveAsk = currentAsk ?? demoAsk;
+
+  const hasRunning = schedules.some((s) => s.status === "running");
+  useEffect(() => {
+    if (!hasRunning || mode !== "live") return;
+    const id = setInterval(() => void load(), 5000);
+    return () => clearInterval(id);
+  }, [hasRunning, mode, load]);
 
   function toggleAgent(id: Provider) {
     setEnabled((prev) => {
@@ -327,6 +390,34 @@ export default function App() {
       prompt: continuationPrompt(segment),
       cwd: segment.cwd || "~",
     });
+  }
+
+  async function answerPending(behavior: "allow" | "deny") {
+    if (!currentAsk && demoAsk) {
+      setDemoAsk(null);
+      notify(
+        behavior === "allow"
+          ? "Approved — the job would continue"
+          : "Denied — the step would be blocked",
+      );
+      return;
+    }
+    if (!currentAsk) return;
+    setAnswering(true);
+    try {
+      await answerAsk(currentAsk.scheduleId, currentAsk.ask.id, behavior);
+      notify(
+        behavior === "allow"
+          ? "Approved — the job continues"
+          : "Denied — the step was blocked",
+      );
+      setDismissedAsk(currentAsk.ask.id);
+      await load();
+    } catch {
+      notify("Could not answer that request — it may have expired", "warn");
+    } finally {
+      setAnswering(false);
+    }
   }
 
   async function submitJob(input: NewJobInput) {
@@ -447,6 +538,8 @@ export default function App() {
           <MissionsPage />
         ) : nav === "roles" ? (
           <RolesPage />
+        ) : nav === "connections" ? (
+          <ConnectionsPage />
         ) : nav === "inbox" ? (
           <InboxPage />
         ) : (
@@ -474,6 +567,27 @@ export default function App() {
         onClose={() => setDialogOpen(false)}
         onSubmit={submitJob}
       />
+
+      <AskDialog
+        request={effectiveAsk}
+        busy={answering}
+        onAnswer={answerPending}
+        onDismiss={() => {
+          if (currentAsk) setDismissedAsk(currentAsk.ask.id);
+          else setDemoAsk(null);
+        }}
+      />
+
+      {pendingAsks.length > 0 && !currentAsk && (
+        <button
+          onClick={() => setDismissedAsk(null)}
+          className="fixed bottom-5 right-5 z-[65] flex items-center gap-2 rounded-xl border border-amber-400/30 bg-ink-800 px-3.5 py-2.5 text-[11.5px] font-medium text-amber-200 shadow-xl"
+        >
+          <AlertTriangle size={14} />
+          {pendingAsks.length} approval{pendingAsks.length > 1 ? "s" : ""} waiting
+          — Review
+        </button>
+      )}
 
       {templateDrag && (
         <div

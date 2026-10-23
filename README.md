@@ -59,6 +59,16 @@ approve or deny.
 
 ![Proposals](docs/proposals.png)
 
+**Connections** — which agent CLIs are installed, which accounts and log roots
+were detected, and how many sessions each ran this week.
+
+![Connections](docs/connections.png)
+
+**Approvals** — a running job that hits a risky step pauses and asks; approve
+or deny from the calendar.
+
+![Approval needed](docs/approval.png)
+
 ---
 
 ## What works in v0.1
@@ -89,6 +99,11 @@ approve or deny.
   pause/resume.
 - **Inbox**: messages with read state, plus a proposals queue with
   approve/deny.
+- **Connections**: detects installed CLIs (`claude`, `codex`, `opencode`,
+  `openclaw`, `hermes`, `cursor-agent`), their paths, detected accounts/log
+  roots, and weekly session counts.
+- **Live approvals**: a running job that hits a risky step pauses and raises an
+  approval dialog; approve or deny from the calendar.
 - **Settings**: engine, data directory, privacy notes and version.
 - **Schedule a job**: name, agent, prompt, working directory, and either
   "at next reset" or a specific time.
@@ -106,7 +121,7 @@ approve or deny.
 | Version | Scope |
 | --- | --- |
 | **v0.1** | Week calendar, lanes, receipts, drag-to-schedule, Kanban DnD ✅ |
-| **v0.2** | Missions, roles/playbooks, inbox + proposals ✅ |
+| **v0.2** | Missions, roles/playbooks, inbox + proposals, connections, live approvals ✅ |
 | **v0.3** | Webhooks UI, iCal feed, Tailscale pairing |
 | **v0.4** | Self-hosted run target (Docker) + browser terminal |
 | **v0.5** | Windows/Linux packaging, auto-update |

@@ -192,3 +192,36 @@ export interface InboxMessage {
   role_name?: string | null;
 }
 
+export interface AgentProbe {
+  id: string;
+  name: string;
+  installed: boolean;
+  path: string | null;
+  supported: boolean;
+}
+
+export interface EngineEvent {
+  id: number;
+  ts: number;
+  type: string;
+  provider?: string | null;
+  account?: string | null;
+  session_id?: string | null;
+  data: Record<string, unknown>;
+}
+
+export interface PendingAsk {
+  id: string;
+  kind?: string;
+  tool?: string;
+  summary?: string;
+  input?: { choices?: string[]; [key: string]: unknown };
+  plan?: {
+    name?: string;
+    summary?: string;
+    metric?: string;
+    roles?: unknown[];
+  } | null;
+}
+
+
