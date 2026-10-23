@@ -7,6 +7,8 @@ import {
 } from "lucide-react";
 import { AGENTS, type Provider } from "../lib/types";
 import { cn } from "../lib/time";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 
 export type NavKey = "calendar" | "missions" | "roles" | "inbox" | "settings";
 
@@ -40,7 +42,7 @@ export function Sidebar({
   return (
     <aside className="flex h-full w-[232px] shrink-0 flex-col border-r border-ink-700/70 bg-ink-900">
       <div className="flex items-center gap-3 px-5 pb-5 pt-6">
-        <div className="relative grid h-9 w-9 place-items-center rounded-xl bg-accent text-ink-950 shadow-[0_0_24px_rgba(184,242,74,0.24)]">
+        <div className="relative grid h-9 w-9 place-items-center rounded-xl bg-brand text-ink-950 shadow-[0_0_24px_rgba(184,242,74,0.24)]">
           <CalendarDays size={18} strokeWidth={2.4} />
           <span className="absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full border-2 border-ink-900 bg-ink-950" />
         </div>
@@ -59,27 +61,31 @@ export function Sidebar({
           const Icon = item.icon;
           const isActive = active === item.key;
           return (
-            <button
+            <Button
               key={item.key}
+              variant={isActive ? "secondary" : "ghost"}
               onClick={() => onNavigate(item.key)}
               className={cn(
-                "group mb-0.5 flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] transition-colors",
+                "mb-0.5 h-9 w-full justify-start gap-2.5 px-3 text-[13px]",
                 isActive
-                  ? "bg-ink-700/80 text-white"
-                  : "text-mist-400 hover:bg-ink-800 hover:text-mist-200",
+                  ? "bg-ink-700/80 text-white hover:bg-ink-700"
+                  : "text-mist-400 hover:text-mist-200",
               )}
             >
               <Icon
                 size={15}
-                className={isActive ? "text-accent" : "text-mist-400 group-hover:text-mist-300"}
+                className={isActive ? "text-brand" : "text-mist-400"}
               />
               <span className="flex-1 text-left font-medium">{item.label}</span>
               {item.badge && (
-                <span className="rounded-md border border-ink-600 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-mist-400">
+                <Badge
+                  variant="outline"
+                  className="h-4 px-1.5 text-[9px] font-semibold uppercase tracking-wider text-mist-400"
+                >
                   {item.badge}
-                </span>
+                </Badge>
               )}
-            </button>
+            </Button>
           );
         })}
       </nav>
@@ -97,11 +103,13 @@ export function Sidebar({
           {AGENTS.map((agent) => {
             const on = enabled.has(agent.id);
             return (
-              <button
+              <Button
                 key={agent.id}
+                variant="ghost"
+                size="sm"
                 onClick={() => onToggleAgent(agent.id)}
                 className={cn(
-                  "flex w-full items-center gap-2.5 rounded-md px-2 py-1.5 text-left transition-opacity",
+                  "h-7 w-full justify-start gap-2.5 px-2 text-[12px] font-normal",
                   on ? "opacity-100" : "opacity-40 hover:opacity-70",
                 )}
               >
@@ -109,13 +117,13 @@ export function Sidebar({
                   className="h-2 w-2 rounded-[3px]"
                   style={{ background: agent.color }}
                 />
-                <span className="flex-1 truncate text-[12px] text-mist-300">
+                <span className="flex-1 truncate text-left text-mist-300">
                   {agent.name}
                 </span>
                 <span className="text-[11px] tabular-nums text-mist-400">
                   {counts[agent.id] ?? 0}
                 </span>
-              </button>
+              </Button>
             );
           })}
         </div>
@@ -148,7 +156,12 @@ export function Sidebar({
         </div>
         <div className="mt-2.5 flex items-center justify-between px-1 text-[10px] text-mist-400/70">
           <span>Local-first</span>
-          <span className="rounded border border-ink-600 px-1 py-0.5 font-medium">MIT</span>
+          <Badge
+            variant="outline"
+            className="h-4 px-1 text-[9px] text-mist-400"
+          >
+            MIT
+          </Badge>
         </div>
       </div>
     </aside>

@@ -212,7 +212,7 @@ export function WeekCalendar({
                 key={day.toISOString()}
                 className={cn(
                   "border-r border-ink-800 px-2.5 py-2 last:border-r-0",
-                  today && "bg-accent/[0.04]",
+                  today && "bg-brand/[0.04]",
                 )}
               >
                 <div className="flex items-baseline justify-between">
@@ -227,13 +227,13 @@ export function WeekCalendar({
                   <span
                     className={cn(
                       "text-[18px] font-semibold leading-none tracking-tight",
-                      today ? "text-accent" : "text-mist-200",
+                      today ? "text-brand" : "text-mist-200",
                     )}
                   >
                     {dayNumber(day)}
                   </span>
                   {today && (
-                    <span className="rounded-full bg-accent px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-ink-950">
+                    <span className="rounded-full bg-brand px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-ink-950">
                       Today
                     </span>
                   )}
@@ -280,7 +280,7 @@ export function WeekCalendar({
                 key={day.toISOString()}
                 className={cn(
                   "relative border-r border-ink-800 last:border-r-0",
-                  today && "bg-accent/[0.02]",
+                  today && "bg-brand/[0.02]",
                 )}
                 style={{ height: 24 * HOUR_HEIGHT }}
                 onPointerDown={(e) => handlePointerDown(e, dayIndex)}
@@ -309,8 +309,8 @@ export function WeekCalendar({
                     className="pointer-events-none absolute inset-x-0 z-20"
                     style={{ top: (nowMinutes / 60) * HOUR_HEIGHT }}
                   >
-                    <div className="relative h-px bg-accent/80">
-                      <span className="absolute -left-[3px] -top-[3px] h-[7px] w-[7px] rounded-full bg-accent shadow-[0_0_8px_rgba(184,242,74,0.7)]" />
+                    <div className="relative h-px bg-brand/80">
+                      <span className="absolute -left-[3px] -top-[3px] h-[7px] w-[7px] rounded-full bg-brand shadow-[0_0_8px_rgba(184,242,74,0.7)]" />
                     </div>
                   </div>
                 )}
@@ -362,7 +362,7 @@ export function WeekCalendar({
                         {isJob && (
                           <Flag
                             size={9}
-                            className="mt-[3px] shrink-0 text-accent"
+                            className="mt-[3px] shrink-0 text-brand"
                             strokeWidth={2.6}
                           />
                         )}
@@ -370,7 +370,7 @@ export function WeekCalendar({
                           <div
                             className={cn(
                               "truncate text-[10.5px] font-semibold leading-[1.25]",
-                              isJob ? "text-accent" : "text-white/90",
+                              isJob ? "text-brand" : "text-white/90",
                             )}
                           >
                             {b.title}
@@ -392,7 +392,7 @@ export function WeekCalendar({
                 {/* drag ghost */}
                 {isDragDay && ghostTo - ghostFrom > 2 && (
                   <div
-                    className="pointer-events-none absolute inset-x-[2px] z-30 rounded-[4px] border border-accent/70 bg-accent/15"
+                    className="pointer-events-none absolute inset-x-[2px] z-30 rounded-[4px] border border-brand/70 bg-brand/15"
                     style={{
                       top: (ghostFrom / 60) * HOUR_HEIGHT,
                       height: Math.max(
@@ -401,7 +401,7 @@ export function WeekCalendar({
                       ),
                     }}
                   >
-                    <div className="px-1.5 pt-1 text-[9px] font-semibold text-accent">
+                    <div className="px-1.5 pt-1 text-[9px] font-semibold text-brand">
                       {fmtTime(dayStartMs(day) + ghostFrom * 60_000)}
                     </div>
                   </div>

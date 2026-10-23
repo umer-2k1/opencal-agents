@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { addDays, addWeeks } from "date-fns";
 import {
   CheckCircle2,
@@ -13,6 +13,14 @@ import { Sidebar, type NavKey } from "./components/Sidebar";
 import { WeekCalendar } from "./components/WeekCalendar";
 import { JobDrawer } from "./components/JobDrawer";
 import { NewJobDialog } from "./components/NewJobDialog";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import {
   createJob,
   engineStarted,
@@ -59,6 +67,27 @@ export default function App() {
     const id = setTimeout(() => setToast(null), 3800);
     return () => clearTimeout(id);
   }, [toast]);
+
+  // Reproducible states for docs screenshots (`?shot=dialog` / `?shot=detail`).
+  const shotHandled = useRef(false);
+  useEffect(() => {
+    const shot = new URLSearchParams(window.location.search).get("shot");
+    if (shot === "dialog") {
+      setDialogStart(new Date());
+      setDialogOpen(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (shotHandled.current) return;
+    const shot = new URLSearchParams(window.location.search).get("shot");
+    if (shot !== "detail" || segments.length === 0) return;
+    shotHandled.current = true;
+    const target =
+      segments.find((s) => s.title?.toLowerCase().includes("build week")) ??
+      segments[0];
+    setSelectedSegment(target);
+  }, [segments]);
 
   const load = useCallback(async () => {
     setSyncing(true);
@@ -228,8 +257,8 @@ export default function App() {
               }}
               onCreateRange={createRange}
             />
-            <footer className="flex shrink-0 items-center gap-4 border-t border-ink-700/70 bg-ink-900/60 px-6 py-2 text-[10.5px] text-mist-400">
-              <span className="flex items-center gap-1.5">
+            <footer className="flex shrink-0 items-center gap-3 overflow-hidden whitespace-nowrap border-t border-ink-700/70 bg-ink-900/60 px-4 py-2 text-[10.5px] text-mist-400">
+              <span className="flex shrink-0 items-center gap-1.5">
                 <span
                   className={
                     mode === "live"
@@ -239,12 +268,14 @@ export default function App() {
                 />
                 {mode === "live" ? "Engine live" : "Demo data"}
               </span>
-              <span className="text-mist-400/50">·</span>
-              <span>{segments.length} blocks this week</span>
-              <span className="text-mist-400/50">·</span>
-              <span>{schedules.filter((s) => s.status === "pending").length} queued jobs</span>
-              <span className="ml-auto hidden sm:inline">
-                Drag on the grid to schedule · click a block for details
+              <span className="shrink-0 text-mist-400/50">·</span>
+              <span className="shrink-0">{segments.length} blocks this week</span>
+              <span className="shrink-0 text-mist-400/50">·</span>
+              <span className="shrink-0">
+                {schedules.filter((s) => s.status === "pending").length} queued jobs
+              </span>
+              <span className="ml-auto hidden shrink-0 md:inline">
+                Drag on the grid to schedule · drag a job to move it
               </span>
             </footer>
           </>
@@ -340,32 +371,39 @@ function PlaceholderView({ nav }: { nav: Exclude<NavKey, "calendar"> }) {
         <p className="mt-0.5 text-[11px] text-mist-400">{meta.subtitle}</p>
       </div>
       <div className="flex flex-1 items-center justify-center p-8">
-        <div className="max-w-[420px] rounded-2xl border border-ink-700 bg-ink-900 p-6">
-          <div className="mb-4 grid h-10 w-10 place-items-center rounded-xl bg-ink-800 text-accent">
-            <Icon size={18} />
-          </div>
-          <div className="mb-1 flex items-center gap-2">
-            <h2 className="text-[14px] font-semibold text-white">
-              Coming in v0.2
-            </h2>
-            <span className="flex items-center gap-1 rounded-full border border-ink-600 px-1.5 py-0.5 text-[9px] uppercase tracking-wider text-mist-400">
-              <Loader2 size={9} className="animate-spin" />
-              in progress
-            </span>
-          </div>
-          <p className="mb-4 text-[11.5px] leading-relaxed text-mist-400">
-            The engine already supports this. The desktop surface is next on the
-            roadmap.
-          </p>
-          <ul className="space-y-2">
-            {meta.points.map((p) => (
-              <li key={p} className="flex gap-2 text-[11.5px] text-mist-300">
-                <CheckCircle2 size={13} className="mt-0.5 shrink-0 text-accent/70" />
-                {p}
-              </li>
-            ))}
-          </ul>
-        </div>
+        <Card className="max-w-[420px] gap-4 border-ink-700 bg-ink-900 py-6">
+          <CardHeader className="gap-1.5">
+            <div className="mb-1 grid h-10 w-10 place-items-center rounded-xl bg-ink-800 text-brand">
+              <Icon size={18} />
+            </div>
+            <div className="flex items-center gap-2">
+              <CardTitle className="text-[14px] text-white">
+                Coming in v0.2
+              </CardTitle>
+              <Badge variant="outline" className="gap-1 text-[9px] uppercase tracking-wider text-mist-400">
+                <Loader2 size={9} className="animate-spin" />
+                in progress
+              </Badge>
+            </div>
+            <CardDescription className="text-[11.5px] leading-relaxed text-mist-400">
+              The engine already supports this. The desktop surface is next on
+              the roadmap.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ul className="space-y-2">
+              {meta.points.map((p) => (
+                <li key={p} className="flex gap-2 text-[11.5px] text-mist-300">
+                  <CheckCircle2
+                    size={13}
+                    className="mt-0.5 shrink-0 text-brand/70"
+                  />
+                  {p}
+                </li>
+              ))}
+            </ul>
+          </CardContent>
+        </Card>
       </div>
     </div>
   );

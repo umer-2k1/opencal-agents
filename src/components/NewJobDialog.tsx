@@ -1,9 +1,21 @@
 import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
-import { Loader2, Plus, X } from "lucide-react";
+import { Loader2, Plus } from "lucide-react";
 import type { NewJobInput } from "../lib/api";
 import { AGENTS, type Provider } from "../lib/types";
 import { cn, toLocalIso } from "../lib/time";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 
 interface Props {
   open: boolean;
@@ -64,8 +76,6 @@ export function NewJobDialog({
     }
   }, [open, initialStart, initialAgent]);
 
-  if (!open) return null;
-
   async function submit(e: FormEvent) {
     e.preventDefault();
     if (!prompt.trim()) {
@@ -100,192 +110,183 @@ export function NewJobDialog({
   }
 
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center p-4">
-      <div
-        className="absolute inset-0 bg-black/60 backdrop-blur-[3px]"
-        onClick={onClose}
-      />
-      <form
-        onSubmit={submit}
-        className="rise relative flex max-h-[92vh] w-full max-w-[540px] flex-col overflow-hidden rounded-2xl border border-ink-600 bg-ink-900 shadow-[0_30px_80px_rgba(0,0,0,0.6)]"
-      >
-        <div className="flex items-start justify-between border-b border-ink-700 px-5 py-4">
-          <div>
-            <h2 className="flex items-center gap-2 text-[15px] font-semibold text-white">
-              <span className="grid h-6 w-6 place-items-center rounded-md bg-accent text-ink-950">
-                <Plus size={14} strokeWidth={3} />
-              </span>
-              New job
-            </h2>
-            <p className="mt-1 text-[11px] text-mist-400">
-              Queued locally. Fires on the engine at the time you choose.
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="grid h-7 w-7 place-items-center rounded-md text-mist-400 hover:bg-ink-700 hover:text-white"
-          >
-            <X size={15} />
-          </button>
-        </div>
+    <Dialog open={open} onOpenChange={(next) => !next && onClose()}>
+      <DialogContent className="max-w-[540px] gap-0 overflow-hidden p-0 sm:max-w-[540px]">
+        <DialogHeader className="gap-1 border-b border-ink-700 px-5 py-4 pr-12 text-left">
+          <DialogTitle className="flex items-center gap-2 text-[15px] text-white">
+            <span className="grid h-6 w-6 place-items-center rounded-md bg-brand text-ink-950">
+              <Plus size={14} strokeWidth={3} />
+            </span>
+            New job
+          </DialogTitle>
+          <DialogDescription className="text-[11px] text-mist-400">
+            Queued locally. Fires on the engine at the time you choose.
+          </DialogDescription>
+        </DialogHeader>
 
-        <div className="scrollbar-thin flex-1 space-y-4 overflow-auto px-5 py-4">
-          <div>
-            <label className="mb-1.5 block text-[10px] font-semibold uppercase tracking-wider text-mist-400">
-              Job name
-            </label>
-            <input
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="e.g. Publish weekly changelog"
-              className="h-9 w-full rounded-lg border border-ink-700 bg-ink-850 px-3 text-[12.5px] text-white outline-none placeholder:text-mist-400/50 focus:border-accent/60"
-            />
-          </div>
-
-          <div>
-            <label className="mb-1.5 block text-[10px] font-semibold uppercase tracking-wider text-mist-400">
-              Agent
-            </label>
-            <div className="grid grid-cols-5 gap-1.5">
-              {AGENTS.map((a) => (
-                <button
-                  key={a.id}
-                  type="button"
-                  onClick={() => {
-                    setAgent(a.id);
-                    if (whenType === "next_reset") setWhenValue(a.id);
-                  }}
-                  className={cn(
-                    "flex flex-col items-center gap-1 rounded-lg border px-1 py-2 text-[10px] font-medium transition-colors",
-                    agent === a.id
-                      ? "border-white/25 bg-ink-700 text-white"
-                      : "border-ink-700 bg-ink-850 text-mist-400 hover:border-ink-600",
-                  )}
-                >
-                  <span
-                    className="h-2 w-2 rounded-[3px]"
-                    style={{ background: a.color }}
-                  />
-                  {a.short}
-                </button>
-              ))}
+        <form onSubmit={submit} className="flex min-h-0 flex-col">
+          <div className="scrollbar-thin max-h-[68vh] space-y-4 overflow-auto px-5 py-4">
+            <div className="space-y-1.5">
+              <Label
+                htmlFor="job-name"
+                className="text-[10px] font-semibold uppercase tracking-wider text-mist-400"
+              >
+                Job name
+              </Label>
+              <Input
+                id="job-name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="e.g. Publish weekly changelog"
+                className="border-ink-700 bg-ink-850 text-[12.5px]"
+              />
             </div>
-          </div>
 
-          <div>
-            <div className="mb-1.5 flex items-center justify-between">
-              <label className="block text-[10px] font-semibold uppercase tracking-wider text-mist-400">
-                Prompt
-              </label>
-              <div className="flex gap-1">
-                {TEMPLATES.map((t) => (
-                  <button
-                    key={t.label}
+            <div className="space-y-1.5">
+              <Label className="text-[10px] font-semibold uppercase tracking-wider text-mist-400">
+                Agent
+              </Label>
+              <div className="grid grid-cols-5 gap-1.5">
+                {AGENTS.map((a) => (
+                  <Button
+                    key={a.id}
                     type="button"
-                    onClick={() => setPrompt(t.prompt)}
-                    className="rounded border border-ink-700 px-1.5 py-0.5 text-[9.5px] text-mist-400 transition-colors hover:border-ink-500 hover:text-mist-200"
+                    variant={agent === a.id ? "secondary" : "outline"}
+                    onClick={() => {
+                      setAgent(a.id);
+                      if (whenType === "next_reset") setWhenValue(a.id);
+                    }}
+                    className={cn(
+                      "h-auto flex-col gap-1 border-ink-700 bg-ink-850 px-1 py-2 text-[10px] font-medium",
+                      agent === a.id && "border-white/25 text-white",
+                    )}
                   >
-                    {t.label}
-                  </button>
+                    <span
+                      className="h-2 w-2 rounded-[3px]"
+                      style={{ background: a.color }}
+                    />
+                    {a.short}
+                  </Button>
                 ))}
               </div>
             </div>
-            <textarea
-              value={prompt}
-              onChange={(e) => setPrompt(e.target.value)}
-              rows={4}
-              placeholder="What should the agent do? Be specific — this prompt runs unattended."
-              className="w-full resize-none rounded-lg border border-ink-700 bg-ink-850 px-3 py-2 text-[12px] leading-relaxed text-white outline-none placeholder:text-mist-400/50 focus:border-accent/60"
-            />
-          </div>
 
-          <div>
-            <label className="mb-1.5 block text-[10px] font-semibold uppercase tracking-wider text-mist-400">
-              Working directory
-            </label>
-            <input
-              value={cwd}
-              onChange={(e) => setCwd(e.target.value)}
-              placeholder="~/Documents/Github/my-project"
-              className="h-9 w-full rounded-lg border border-ink-700 bg-ink-850 px-3 font-mono text-[11.5px] text-white outline-none placeholder:text-mist-400/50 focus:border-accent/60"
-            />
-          </div>
-
-          <div>
-            <label className="mb-1.5 block text-[10px] font-semibold uppercase tracking-wider text-mist-400">
-              When
-            </label>
-            <div className="flex gap-1.5">
-              <button
-                type="button"
-                onClick={() => setWhenType("next_reset")}
-                className={cn(
-                  "flex-1 rounded-lg border px-3 py-2 text-left text-[11px] transition-colors",
-                  whenType === "next_reset"
-                    ? "border-accent/50 bg-accent/[0.06] text-white"
-                    : "border-ink-700 bg-ink-850 text-mist-400 hover:border-ink-600",
-                )}
-              >
-                <div className="font-medium">At next reset</div>
-                <div className="mt-0.5 text-[9.5px] opacity-70">
-                  capacity returns
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <Label
+                  htmlFor="job-prompt"
+                  className="text-[10px] font-semibold uppercase tracking-wider text-mist-400"
+                >
+                  Prompt
+                </Label>
+                <div className="flex gap-1">
+                  {TEMPLATES.map((t) => (
+                    <button
+                      key={t.label}
+                      type="button"
+                      onClick={() => setPrompt(t.prompt)}
+                      className="rounded border border-ink-700 px-1.5 py-0.5 text-[9.5px] text-mist-400 transition-colors hover:border-ink-500 hover:text-mist-200"
+                    >
+                      {t.label}
+                    </button>
+                  ))}
                 </div>
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setWhenType("at");
-                  if (!whenValue || !whenValue.includes("T")) {
-                    setWhenValue(toLocalIso(new Date(Date.now() + 3600_000)));
-                  }
-                }}
-                className={cn(
-                  "flex-1 rounded-lg border px-3 py-2 text-left text-[11px] transition-colors",
-                  whenType === "at"
-                    ? "border-accent/50 bg-accent/[0.06] text-white"
-                    : "border-ink-700 bg-ink-850 text-mist-400 hover:border-ink-600",
-                )}
-              >
-                <div className="font-medium">Specific time</div>
-                <div className="mt-0.5 text-[9.5px] opacity-70">pick a moment</div>
-              </button>
-            </div>
-            {whenType === "at" && (
-              <input
-                type="datetime-local"
-                value={whenValue}
-                onChange={(e) => setWhenValue(e.target.value)}
-                className="mt-2 h-9 w-full rounded-lg border border-ink-700 bg-ink-850 px-3 text-[12px] text-white outline-none focus:border-accent/60 [color-scheme:dark]"
+              </div>
+              <Textarea
+                id="job-prompt"
+                value={prompt}
+                onChange={(e) => setPrompt(e.target.value)}
+                rows={4}
+                placeholder="What should the agent do? Be specific — this prompt runs unattended."
+                className="min-h-[96px] resize-none border-ink-700 bg-ink-850 text-[12px] leading-relaxed"
               />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label
+                htmlFor="job-cwd"
+                className="text-[10px] font-semibold uppercase tracking-wider text-mist-400"
+              >
+                Working directory
+              </Label>
+              <Input
+                id="job-cwd"
+                value={cwd}
+                onChange={(e) => setCwd(e.target.value)}
+                placeholder="~/Documents/Github/my-project"
+                className="border-ink-700 bg-ink-850 font-mono text-[11.5px]"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-[10px] font-semibold uppercase tracking-wider text-mist-400">
+                When
+              </Label>
+              <div className="flex gap-1.5">
+                <Button
+                  type="button"
+                  variant={whenType === "next_reset" ? "secondary" : "outline"}
+                  onClick={() => setWhenType("next_reset")}
+                  className={cn(
+                    "h-auto flex-1 flex-col items-start gap-0.5 border-ink-700 bg-ink-850 px-3 py-2 text-[11px]",
+                    whenType === "next_reset" &&
+                      "border-brand/50 bg-brand/[0.06] text-white",
+                  )}
+                >
+                  <span className="font-medium">At next reset</span>
+                  <span className="text-[9.5px] font-normal opacity-70">
+                    capacity returns
+                  </span>
+                </Button>
+                <Button
+                  type="button"
+                  variant={whenType === "at" ? "secondary" : "outline"}
+                  onClick={() => {
+                    setWhenType("at");
+                    if (!whenValue || !whenValue.includes("T")) {
+                      setWhenValue(toLocalIso(new Date(Date.now() + 3600_000)));
+                    }
+                  }}
+                  className={cn(
+                    "h-auto flex-1 flex-col items-start gap-0.5 border-ink-700 bg-ink-850 px-3 py-2 text-[11px]",
+                    whenType === "at" &&
+                      "border-brand/50 bg-brand/[0.06] text-white",
+                  )}
+                >
+                  <span className="font-medium">Specific time</span>
+                  <span className="text-[9.5px] font-normal opacity-70">
+                    pick a moment
+                  </span>
+                </Button>
+              </div>
+              {whenType === "at" && (
+                <Input
+                  type="datetime-local"
+                  value={whenValue}
+                  onChange={(e) => setWhenValue(e.target.value)}
+                  className="border-ink-700 bg-ink-850 text-[12px] [color-scheme:dark]"
+                />
+              )}
+            </div>
+
+            {error && (
+              <div className="rounded-lg border border-rose-400/30 bg-rose-400/10 px-3 py-2 text-[11px] text-rose-300">
+                {error}
+              </div>
             )}
           </div>
 
-          {error && (
-            <div className="rounded-lg border border-rose-400/30 bg-rose-400/10 px-3 py-2 text-[11px] text-rose-300">
-              {error}
-            </div>
-          )}
-        </div>
-
-        <div className="flex items-center justify-end gap-2 border-t border-ink-700 px-5 py-3.5">
-          <button
-            type="button"
-            onClick={onClose}
-            className="h-8 rounded-lg px-3 text-[12px] font-medium text-mist-400 hover:text-white"
-          >
-            Cancel
-          </button>
-          <button
-            type="submit"
-            disabled={busy}
-            className="flex h-8 items-center gap-1.5 rounded-lg bg-accent px-4 text-[12px] font-semibold text-ink-950 transition-transform hover:brightness-105 active:scale-[0.98] disabled:opacity-60"
-          >
-            {busy && <Loader2 size={13} className="animate-spin" />}
-            {busy ? "Scheduling…" : "Schedule job"}
-          </button>
-        </div>
-      </form>
-    </div>
+          <DialogFooter className="border-t border-ink-700 px-5 py-3.5">
+            <Button type="button" variant="ghost" onClick={onClose}>
+              Cancel
+            </Button>
+            <Button type="submit" disabled={busy} className="gap-1.5 font-semibold">
+              {busy && <Loader2 size={13} className="animate-spin" />}
+              {busy ? "Scheduling…" : "Schedule job"}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }

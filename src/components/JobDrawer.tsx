@@ -1,4 +1,3 @@
-import { useEffect } from "react";
 import type { ReactNode } from "react";
 import {
   CalendarClock,
@@ -6,12 +5,21 @@ import {
   Copy,
   Folder,
   Hash,
-  X,
   Zap,
 } from "lucide-react";
 import type { Schedule, Segment } from "../lib/types";
 import { agentById } from "../lib/types";
 import { durationLabel, fmtClock, fmtRange } from "../lib/time";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Separator } from "@/components/ui/separator";
 
 interface Props {
   segment?: Segment | null;
@@ -50,21 +58,12 @@ function parseAction(value: string): Record<string, unknown> {
 }
 
 export function JobDrawer({ segment, schedule, onClose }: Props) {
-  useEffect(() => {
-    function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") onClose();
-    }
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
-
-  if (!segment && !schedule) return null;
-
+  const open = !!segment || !!schedule;
   const isJob = !!schedule;
-  const agent = agentById(isJob ? "claude" : segment!.provider);
+  const agent = agentById(isJob ? "claude" : segment?.provider ?? "claude");
   const title = isJob
-    ? schedule!.name || "Queued job"
-    : segment!.title || segment!.project || "Agent session";
+    ? schedule?.name || "Queued job"
+    : segment?.title || segment?.project || "Agent session";
 
   const action = schedule ? parseAction(schedule.action_value) : null;
   const totalTokens = segment
@@ -85,59 +84,60 @@ export function JobDrawer({ segment, schedule, onClose }: Props) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex justify-end">
-      <div
-        className="absolute inset-0 bg-black/50 backdrop-blur-[2px]"
-        onClick={onClose}
-      />
-      <aside className="rise relative flex h-full w-full max-w-[390px] flex-col border-l border-ink-700 bg-ink-900 shadow-2xl">
+    <Sheet open={open} onOpenChange={(next) => !next && onClose()}>
+      <SheetContent
+        side="right"
+        className="flex w-full flex-col gap-0 p-0 sm:max-w-[390px]"
+      >
         <div
-          className="h-1 w-full"
+          className="h-1 w-full shrink-0"
           style={{ background: isJob ? "#b8f24a" : agent.color }}
         />
-        <div className="flex items-start justify-between gap-3 px-5 pb-4 pt-4">
-          <div className="min-w-0">
-            <div className="mb-1.5 flex items-center gap-2">
-              <span
-                className="rounded-md px-1.5 py-0.5 text-[9.5px] font-semibold uppercase tracking-wider"
-                style={{
-                  background: isJob ? "rgba(184,242,74,0.12)" : agent.soft,
-                  color: isJob ? "#b8f24a" : agent.color,
-                }}
-              >
-                {isJob ? "Scheduled job" : agent.name}
-              </span>
-              {segment?.state && (
-                <span className="flex items-center gap-1 text-[10px] text-mist-400">
-                  <span
-                    className={
-                      segment.state === "active"
-                        ? "live-dot h-1.5 w-1.5 rounded-full bg-emerald-400"
-                        : "h-1.5 w-1.5 rounded-full bg-mist-500"
-                    }
-                  />
-                  {segment.state}
-                </span>
-              )}
-              {schedule && (
-                <span className="rounded-md border border-ink-600 px-1.5 py-0.5 text-[9.5px] uppercase tracking-wider text-mist-300">
-                  {schedule.status}
-                </span>
-              )}
-            </div>
-            <h2 className="text-[15px] font-semibold leading-snug text-white">
-              {title}
-            </h2>
-          </div>
-          <button
-            onClick={onClose}
-            className="grid h-7 w-7 shrink-0 place-items-center rounded-md text-mist-400 transition-colors hover:bg-ink-700 hover:text-white"
-          >
-            <X size={15} />
-          </button>
-        </div>
 
-        <div className="flex-1 overflow-auto px-5 pb-5">
+        <SheetHeader className="gap-2 px-5 pb-4 pt-4 pr-12 text-left">
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge
+              variant="outline"
+              className="border-transparent"
+              style={{
+                background: isJob ? "rgba(184,242,74,0.12)" : agent.soft,
+                color: isJob ? "#b8f24a" : agent.color,
+              }}
+            >
+              {isJob ? "Scheduled job" : agent.name}
+            </Badge>
+            {segment?.state && (
+              <span className="flex items-center gap-1 text-[10px] text-mist-400">
+                <span
+                  className={
+                    segment.state === "active"
+                      ? "live-dot h-1.5 w-1.5 rounded-full bg-emerald-400"
+                      : "h-1.5 w-1.5 rounded-full bg-mist-500"
+                  }
+                />
+                {segment.state}
+              </span>
+            )}
+            {schedule && (
+              <Badge
+                variant="outline"
+                className="border-ink-600 text-[9.5px] uppercase tracking-wider text-mist-300"
+              >
+                {schedule.status}
+              </Badge>
+            )}
+          </div>
+          <SheetTitle className="text-[15px] leading-snug text-white">
+            {title}
+          </SheetTitle>
+          <SheetDescription className="sr-only">
+            Details for {title}
+          </SheetDescription>
+        </SheetHeader>
+
+        <Separator />
+
+        <div className="scrollbar-thin flex-1 overflow-auto px-5 py-4">
           {segment && (
             <>
               <div className="mb-4 rounded-xl border border-ink-700 bg-ink-850 p-3">
@@ -190,8 +190,8 @@ export function JobDrawer({ segment, schedule, onClose }: Props) {
 
           {schedule && action && (
             <>
-              <div className="mb-4 rounded-xl border border-accent/20 bg-accent/[0.05] p-3">
-                <div className="flex items-center gap-2 text-[11px] font-medium text-accent">
+              <div className="mb-4 rounded-xl border border-brand/20 bg-brand/[0.05] p-3">
+                <div className="flex items-center gap-2 text-[11px] font-medium text-brand">
                   <CalendarClock size={13} />
                   {schedule.when_type === "next_reset"
                     ? "Fires at the next reset"
@@ -242,22 +242,18 @@ export function JobDrawer({ segment, schedule, onClose }: Props) {
           )}
         </div>
 
-        <div className="flex items-center gap-2 border-t border-ink-700 p-4">
-          <button
-            onClick={copy}
-            className="flex h-8 flex-1 items-center justify-center gap-1.5 rounded-lg border border-ink-600 text-[12px] font-medium text-mist-300 transition-colors hover:border-ink-500 hover:text-white"
-          >
+        <Separator />
+
+        <div className="flex items-center gap-2 p-4">
+          <Button variant="outline" onClick={copy} className="flex-1 gap-1.5">
             <Copy size={13} />
             Copy details
-          </button>
-          <button
-            onClick={onClose}
-            className="h-8 flex-1 rounded-lg bg-ink-700 text-[12px] font-medium text-mist-200 transition-colors hover:bg-ink-600"
-          >
+          </Button>
+          <Button variant="secondary" onClick={onClose} className="flex-1">
             Close
-          </button>
+          </Button>
         </div>
-      </aside>
-    </div>
+      </SheetContent>
+    </Sheet>
   );
 }

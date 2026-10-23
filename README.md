@@ -10,6 +10,32 @@ engine (MIT). It is not affiliated with, endorsed by, or a copy of AgentCal HQ.
 
 ![status](https://img.shields.io/badge/status-v0.1%20preview-b8f24a)
 ![license](https://img.shields.io/badge/license-MIT-blue)
+![stack](https://img.shields.io/badge/Tauri%202%20%2B%20React%2019-0a0d14)
+
+---
+
+## Screenshots
+
+### One week, every agent
+
+Five colour-coded lanes, overlap layout for double-booked agents, a live
+"now" line, and queued jobs rendered as dashed blocks.
+
+![Week calendar](docs/calendar.png)
+
+### Schedule a job
+
+Pick an agent, write the prompt, choose a working directory and either
+"at next reset" or a specific time.
+
+![New job dialog](docs/dialog.png)
+
+### Receipts, not green ticks
+
+Click any block for project, model, tokens, duration, working directory,
+session id — and for jobs, the exact prompt and result.
+
+![Session detail drawer](docs/detail.png)
 
 ---
 
@@ -36,7 +62,7 @@ engine (MIT). It is not affiliated with, endorsed by, or a copy of AgentCal HQ.
 | Version | Scope |
 | --- | --- |
 | **v0.1** | Week calendar, lanes, receipts drawer, drag-to-schedule ✅ |
-| **v0.2** | Missions, roles/playbooks, inbox + approvals |
+| **v0.2** | Kanban drag-and-drop, missions, roles/playbooks, inbox + approvals |
 | **v0.3** | Webhooks UI, iCal feed, Tailscale pairing |
 | **v0.4** | Self-hosted run target (Docker) + browser terminal |
 | **v0.5** | Windows/Linux packaging, auto-update |
@@ -45,7 +71,7 @@ engine (MIT). It is not affiliated with, endorsed by, or a copy of AgentCal HQ.
 
 - **Tauri 2** (Rust shell, macOS/Windows/Linux)
 - **React 19 + TypeScript + Vite**
-- **Tailwind CSS v4**
+- **Tailwind CSS v4** with **shadcn/ui** (Radix primitives)
 - **`agentcalendar` engine** (MIT, vendored under `engine/`)
 
 ## Run it
@@ -66,9 +92,9 @@ the UI talks to it at `http://127.0.0.1:4747`.
 pnpm dev
 ```
 
-Without the Tauri shell the app runs in **Demo** mode. To point it at an
-engine you already started (`npx agentcalendar`), the engine requires its auth
-token for browser origins; run inside Tauri or use the engine's own UI.
+Without the Tauri shell the app runs in **Demo** mode. Open
+`http://localhost:1420/?shot=dialog` or `?shot=detail` to jump straight to a
+dialog/drawer state (used for the screenshots above).
 
 ### Environment overrides
 
@@ -89,8 +115,10 @@ opencal-agents/
 ├── engine/               # vendored MIT engine (collectors, scheduler, API)
 ├── src/                  # React UI
 │   ├── components/       # Sidebar, Header, WeekCalendar, JobDrawer, NewJobDialog
+│   ├── components/ui/    # shadcn/ui primitives (button, dialog, sheet, …)
 │   └── lib/              # engine client, demo data, types, time helpers
 ├── src-tauri/            # Rust shell + commands (engine token / start)
+├── docs/                 # screenshots used above
 └── NOTICE                # upstream attribution
 ```
 
