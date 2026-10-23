@@ -1,26 +1,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { addDays, addWeeks } from "date-fns";
-import {
-  CheckCircle2,
-  Inbox,
-  Loader2,
-  Settings,
-  Sparkles,
-  Users,
-} from "lucide-react";
+import { CheckCircle2 } from "lucide-react";
 import { Header } from "./components/Header";
 import { Sidebar, type NavKey } from "./components/Sidebar";
 import { WeekCalendar } from "./components/WeekCalendar";
 import { JobDrawer } from "./components/JobDrawer";
 import { NewJobDialog } from "./components/NewJobDialog";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { MissionsPage } from "./pages/Missions";
+import { RolesPage } from "./pages/Roles";
+import { InboxPage } from "./pages/Inbox";
+import { SettingsPage } from "./pages/Settings";
 import {
   createJob,
   engineStarted,
@@ -36,6 +25,16 @@ import { startOfWeekMonday } from "./lib/time";
 
 type Mode = "connecting" | "live" | "demo";
 
+function initialNav(): NavKey {
+  const page = new URLSearchParams(window.location.search).get("page");
+  return page === "missions" ||
+    page === "roles" ||
+    page === "inbox" ||
+    page === "settings"
+    ? page
+    : "calendar";
+}
+
 interface Toast {
   id: number;
   message: string;
@@ -44,7 +43,7 @@ interface Toast {
 
 export default function App() {
   const [weekStart, setWeekStart] = useState(() => startOfWeekMonday(new Date()));
-  const [nav, setNav] = useState<NavKey>("calendar");
+  const [nav, setNav] = useState<NavKey>(initialNav);
   const [segments, setSegments] = useState<Segment[]>([]);
   const [schedules, setSchedules] = useState<Schedule[]>([]);
   const [mode, setMode] = useState<Mode>("connecting");
@@ -276,7 +275,8 @@ export default function App() {
               onPrev={() => setWeekStart((w) => addWeeks(w, -1))}
               onNext={() => setWeekStart((w) => addWeeks(w, 1))}
               onToday={() => setWeekStart(startOfWeekMonday(new Date()))}
-              onNewJob={() => openNewJob(null)}              onRefresh={() => void load()}
+              onNewJob={() => openNewJob(null)}
+              onRefresh={() => void load()}
               syncing={syncing}
               mode={mode}
               activeCount={activeCount}
@@ -325,8 +325,14 @@ export default function App() {
               </span>
             </footer>
           </>
+        ) : nav === "missions" ? (
+          <MissionsPage />
+        ) : nav === "roles" ? (
+          <RolesPage />
+        ) : nav === "inbox" ? (
+          <InboxPage />
         ) : (
-          <PlaceholderView nav={nav} />
+          <SettingsPage />
         )}
       </main>
 
@@ -365,93 +371,3 @@ export default function App() {
   );
 }
 
-function PlaceholderView({ nav }: { nav: Exclude<NavKey, "calendar"> }) {
-  const meta = {
-    missions: {
-      icon: Sparkles,
-      title: "Missions",
-      subtitle: "One goal in. A staffed team and a weekly schedule out.",
-      points: [
-        "Describe a goal and let the planner draft roles, playbooks, and shifts",
-        "Approve the brief once — the schedule fills itself",
-        "Per-mission view groups every block and receipt",
-      ],
-    },
-    roles: {
-      icon: Users,
-      title: "Roles",
-      subtitle: "Standing agent employees with playbooks and budgets.",
-      points: [
-        "Each role has a playbook, model, and weekly budget",
-        "Pause a role to act as a kill-switch",
-        "Auto-approve envelopes bound what agents may schedule alone",
-      ],
-    },
-    inbox: {
-      icon: Inbox,
-      title: "Inbox",
-      subtitle: "Only the things that genuinely need your call.",
-      points: [
-        "Risky actions arrive as approval cards",
-        "Reports and failed runs land here with receipts",
-        "Approve or deny without finding the terminal",
-      ],
-    },
-    settings: {
-      icon: Settings,
-      title: "Settings",
-      subtitle: "Engine, accounts, and integrations.",
-      points: [
-        "Engine runs at http://127.0.0.1:4747",
-        "Data lives in ~/.agentcal/agentcal.db",
-        "Webhooks, iCal, and Tailscale pairing arrive in v0.3",
-      ],
-    },
-  }[nav];
-
-  const Icon = meta.icon;
-
-  return (
-    <div className="flex h-full flex-col">
-      <div className="border-b border-ink-700/70 px-6 py-4">
-        <h1 className="text-[17px] font-semibold text-white">{meta.title}</h1>
-        <p className="mt-0.5 text-[11px] text-mist-400">{meta.subtitle}</p>
-      </div>
-      <div className="flex flex-1 items-center justify-center p-8">
-        <Card className="max-w-[420px] gap-4 border-ink-700 bg-ink-900 py-6">
-          <CardHeader className="gap-1.5">
-            <div className="mb-1 grid h-10 w-10 place-items-center rounded-xl bg-ink-800 text-brand">
-              <Icon size={18} />
-            </div>
-            <div className="flex items-center gap-2">
-              <CardTitle className="text-[14px] text-white">
-                Coming in v0.2
-              </CardTitle>
-              <Badge variant="outline" className="gap-1 text-[9px] uppercase tracking-wider text-mist-400">
-                <Loader2 size={9} className="animate-spin" />
-                in progress
-              </Badge>
-            </div>
-            <CardDescription className="text-[11.5px] leading-relaxed text-mist-400">
-              The engine already supports this. The desktop surface is next on
-              the roadmap.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <ul className="space-y-2">
-              {meta.points.map((p) => (
-                <li key={p} className="flex gap-2 text-[11.5px] text-mist-300">
-                  <CheckCircle2
-                    size={13}
-                    className="mt-0.5 shrink-0 text-brand/70"
-                  />
-                  {p}
-                </li>
-              ))}
-            </ul>
-          </CardContent>
-        </Card>
-      </div>
-    </div>
-  );
-}

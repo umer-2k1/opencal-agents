@@ -112,3 +112,83 @@ export const AGENTS: AgentMeta[] = [
 
 export const agentById = (id: Provider | string): AgentMeta =>
   AGENTS.find((a) => a.id === id) ?? AGENTS[0];
+
+export interface Mission {
+  id: string;
+  name: string;
+  goal: string;
+  summary: string;
+  metric: string;
+  status: string;
+  created_at: number;
+  roles?: number;
+  shifts?: number;
+  oneOff?: number;
+}
+
+export interface MissionShift {
+  name: string;
+  when: { type: "daily" | "cron"; value: string };
+  model?: string;
+  effort?: string;
+  prompt: string;
+}
+
+export interface MissionRole {
+  name: string;
+  agent: Provider;
+  cwd?: string;
+  playbook: string;
+  shifts: MissionShift[];
+}
+
+export interface MissionOneOff {
+  name: string;
+  role: string;
+  inMinutes: number;
+  model?: string;
+  prompt: string;
+}
+
+export interface MissionPlan {
+  goal: string;
+  name: string;
+  summary: string;
+  metric: string;
+  roles: MissionRole[];
+  oneOff: MissionOneOff[];
+}
+
+export interface Role {
+  id: string;
+  name: string;
+  agent: Provider;
+  cwd: string | null;
+  model: string | null;
+  full_auto: number;
+  playbook: string;
+  notes: string;
+  budget_week_usd: number | null;
+  auto_approve: number;
+  env_max_per_week: number;
+  env_horizon_days: number;
+  status: "active" | "paused";
+  created_at: number;
+  updated_at: number;
+  mission_id?: string | null;
+  weekSpend?: number;
+}
+
+export interface InboxMessage {
+  id: string;
+  role_id: string | null;
+  schedule_id: string | null;
+  kind: "info" | "attention" | "report";
+  subject: string | null;
+  body: string | null;
+  created_at: number;
+  read_at: number | null;
+  archived_at: number | null;
+  role_name?: string | null;
+}
+

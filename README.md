@@ -37,6 +37,28 @@ session id — and for jobs, the exact prompt and result.
 
 ![Session detail drawer](docs/detail.png)
 
+### The rest of the workspace
+
+**Missions** — describe a goal; the planner drafts roles, playbooks and shifts;
+you approve the brief once.
+
+![Missions](docs/missions.png)
+
+**Roles** — standing agent employees with playbooks, weekly budgets and a
+pause switch that acts as a kill-switch.
+
+![Roles](docs/roles.png)
+
+**Inbox** — only the things that need your call: approvals, reports and
+failed runs.
+
+![Inbox](docs/inbox.png)
+
+**Proposals** — agent-created work outside its envelope waits here for
+approve or deny.
+
+![Proposals](docs/proposals.png)
+
 ---
 
 ## What works in v0.1
@@ -56,6 +78,13 @@ session id — and for jobs, the exact prompt and result.
   live drop ghost and auto-scroll near the edges.
 - **Quick schedule tray** in the sidebar: drag an agent chip onto the grid to
   create a job at that slot.
+- **Missions**: describe a goal, the planner drafts roles/playbooks/shifts, and
+  one approval creates everything.
+- **Roles**: the employee roster — playbooks, models, weekly budgets, spend,
+  pause/resume.
+- **Inbox**: messages with read state, plus a proposals queue with
+  approve/deny.
+- **Settings**: engine, data directory, privacy notes and version.
 - **Schedule a job**: name, agent, prompt, working directory, and either
   "at next reset" or a specific time.
 - **Queued jobs** render as dashed blocks on the calendar.
@@ -65,8 +94,8 @@ session id — and for jobs, the exact prompt and result.
 
 | Version | Scope |
 | --- | --- |
-| **v0.1** | Week calendar, lanes, receipts drawer, drag-to-schedule, Kanban drag-and-drop ✅ |
-| **v0.2** | Missions, roles/playbooks, inbox + approvals |
+| **v0.1** | Week calendar, lanes, receipts, drag-to-schedule, Kanban DnD ✅ |
+| **v0.2** | Missions, roles/playbooks, inbox + proposals ✅ |
 | **v0.3** | Webhooks UI, iCal feed, Tailscale pairing |
 | **v0.4** | Self-hosted run target (Docker) + browser terminal |
 | **v0.5** | Windows/Linux packaging, auto-update |
@@ -133,6 +162,7 @@ opencal-agents/
 ├── src/                  # React UI
 │   ├── components/       # Sidebar, Header, WeekCalendar, JobDrawer, NewJobDialog
 │   ├── components/ui/    # shadcn/ui primitives (button, dialog, sheet, …)
+│   ├── pages/            # Missions, Roles, Inbox, Settings
 │   └── lib/              # engine client, demo data, types, time helpers
 ├── src-tauri/            # Rust shell + commands (engine token / start)
 ├── docs/                 # screenshots used above

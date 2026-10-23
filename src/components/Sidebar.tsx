@@ -15,10 +15,10 @@ export type NavKey = "calendar" | "missions" | "roles" | "inbox" | "settings";
 
 const NAV: { key: NavKey; label: string; icon: typeof CalendarDays; badge?: string }[] = [
   { key: "calendar", label: "Calendar", icon: CalendarDays },
-  { key: "missions", label: "Missions", icon: Sparkles, badge: "v2" },
-  { key: "roles", label: "Roles", icon: Users, badge: "v2" },
-  { key: "inbox", label: "Inbox", icon: Inbox, badge: "v2" },
-  { key: "settings", label: "Settings", icon: Settings, badge: "v2" },
+  { key: "missions", label: "Missions", icon: Sparkles },
+  { key: "roles", label: "Roles", icon: Users },
+  { key: "inbox", label: "Inbox", icon: Inbox },
+  { key: "settings", label: "Settings", icon: Settings },
 ];
 
 interface Props {

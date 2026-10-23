@@ -1,5 +1,13 @@
 import { addDays } from "date-fns";
-import type { Provider, Schedule, Segment } from "./types";
+import type {
+  InboxMessage,
+  Mission,
+  MissionPlan,
+  Provider,
+  Role,
+  Schedule,
+  Segment,
+} from "./types";
 
 /**
  * Demo data so the calendar is useful before the local engine is connected.
@@ -72,8 +80,7 @@ export function demoWeek(weekStart: Date): Segment[] {
   });
 }
 
-export function demoSchedules(weekStart: Date): Schedule[] {
-  const now = Date.now();
+export function demoSchedules(weekStart: Date): Schedule[] {  const now = Date.now();
   const t1 = atMinutes(addDays(weekStart, 2), "18:00");
   const t2 = atMinutes(addDays(weekStart, 4), "09:00");
   const t3 = atMinutes(addDays(weekStart, 5), "08:00");
@@ -128,6 +135,295 @@ export function demoSchedules(weekStart: Date): Schedule[] {
       created_at: now - 86400_000,
       fired_at: null,
       result: null,
+    },
+  ];
+}
+
+export function demoMissions(): Mission[] {
+  const now = Date.now();
+  return [
+    {
+      id: "demo-mission-1",
+      name: "Inbound engine",
+      goal: "Qualify and reply to every inbound lead within an hour.",
+      summary:
+        "A two-person squad keeps the inbox moving: a scout enriches and scores new leads, a reviewer checks each draft before anything sends.",
+      metric:
+        "Reply rate above 90%, and zero unanswered leads older than 60 minutes.",
+      status: "active",
+      created_at: now - 6 * 86_400_000,
+      roles: 2,
+      shifts: 4,
+      oneOff: 1,
+    },
+    {
+      id: "demo-mission-2",
+      name: "BuildArc weekly",
+      goal: "Ship one short vertical video every week without a production scramble.",
+      summary:
+        "A producer plans the cut, an editor renders the vertical export, and a reviewer checks captions and timing before publishing.",
+      metric: "One published 9:16 video per week, under 24h from raw footage.",
+      status: "active",
+      created_at: now - 13 * 86_400_000,
+      roles: 3,
+      shifts: 5,
+      oneOff: 0,
+    },
+    {
+      id: "demo-mission-3",
+      name: "Ops hygiene",
+      goal: "Keep the machine and repos tidy while I sleep.",
+      summary:
+        "A quiet custodian rotates backups, prunes downloads, and files a one-paragraph report every morning.",
+      metric: "Zero manual cleanup sessions; disk headroom above 120 GB.",
+      status: "paused",
+      created_at: now - 21 * 86_400_000,
+      roles: 1,
+      shifts: 2,
+      oneOff: 0,
+    },
+  ];
+}
+
+export function demoMissionPlan(goal: string): MissionPlan {
+  return {
+    goal,
+    name: "Inbound engine",
+    summary:
+      "A small squad that watches the inbox, enriches every new lead, and drafts a reply for review. Cheap models handle the hourly sweep; the reviewer uses a stronger model for the final check.",
+    metric:
+      "Reply rate above 90%, measured from the inbox report filed each morning.",
+    roles: [
+      {
+        name: "Lead Scout",
+        agent: "claude",
+        cwd: "~/Documents/Github/outreach",
+        playbook:
+          "Identity: the first responder for inbound leads. Duties: enrich each new lead, score fit, and draft a short reply. Success: every lead has a score and a draft within the hour. Report: counts, scores, and anything that needs a human.",
+        shifts: [
+          {
+            name: "Hourly inbox sweep",
+            when: { type: "daily", value: "09:00" },
+            model: "haiku-4",
+            effort: "low",
+            prompt:
+              "Sweep the inbox for new leads. For each one, enrich the company, score fit against our ICP, and draft a reply. Leave risky or ambiguous leads for review.",
+          },
+        ],
+      },
+      {
+        name: "Reply Reviewer",
+        agent: "codex",
+        cwd: "~/Documents/Github/outreach",
+        playbook:
+          "Identity: second pair of eyes on outbound. Duties: check drafts for accuracy, tone, and commitments we cannot keep. Success: no draft ships with a factual or policy error. Report: approved, edited, or blocked with a reason.",
+        shifts: [
+          {
+            name: "End-of-day review",
+            when: { type: "cron", value: "0 17 * * 1-5" },
+            model: "gpt-5-codex",
+            prompt:
+              "Review every drafted reply from today. Approve the safe ones, edit the borderline ones, and block anything that makes a commitment we cannot keep. File a short report.",
+          },
+        ],
+      },
+    ],
+    oneOff: [
+      {
+        name: "Kickoff audit",
+        role: "Lead Scout",
+        inMinutes: 10,
+        model: "sonnet-4.5",
+        prompt:
+          "Audit the current inbox and score every open lead. Produce a baseline report so we can measure the squad.",
+      },
+    ],
+  };
+}
+
+export function demoRoles(): Role[] {
+  const now = Date.now();
+  return [
+    {
+      id: "demo-role-1",
+      name: "Lead Scout",
+      agent: "claude",
+      cwd: "~/Documents/Github/outreach",
+      model: "haiku-4",
+      full_auto: 0,
+      playbook:
+        "Identity: first responder for inbound leads. Enrich each lead, score fit against the ICP, and draft a short reply. Escalate pricing and legal questions.",
+      notes: "",
+      budget_week_usd: 12,
+      auto_approve: 0,
+      env_max_per_week: 5,
+      env_horizon_days: 14,
+      status: "active",
+      created_at: now - 6 * 86_400_000,
+      updated_at: now - 86_400_000,
+      mission_id: "demo-mission-1",
+      weekSpend: 4.18,
+    },
+    {
+      id: "demo-role-2",
+      name: "Reply Reviewer",
+      agent: "codex",
+      cwd: "~/Documents/Github/outreach",
+      model: "gpt-5-codex",
+      full_auto: 0,
+      playbook:
+        "Identity: second pair of eyes on outbound. Check drafts for accuracy, tone, and commitments. Approve, edit, or block with a reason.",
+      notes: "Prefers shorter replies. Blocks any discount language.",
+      budget_week_usd: 20,
+      auto_approve: 1,
+      env_max_per_week: 8,
+      env_horizon_days: 14,
+      status: "active",
+      created_at: now - 6 * 86_400_000,
+      updated_at: now - 2 * 86_400_000,
+      mission_id: "demo-mission-1",
+      weekSpend: 7.82,
+    },
+    {
+      id: "demo-role-3",
+      name: "Release Notes",
+      agent: "opencode",
+      cwd: "~/Documents/Github/opencal-agents",
+      model: "deepseek-v4",
+      full_auto: 0,
+      playbook:
+        "Identity: changelog writer. Read merged commits, group them by user impact, and write a short publishable note.",
+      notes: "",
+      budget_week_usd: 8,
+      auto_approve: 0,
+      env_max_per_week: 3,
+      env_horizon_days: 7,
+      status: "paused",
+      created_at: now - 20 * 86_400_000,
+      updated_at: now - 4 * 86_400_000,
+      mission_id: null,
+      weekSpend: 0,
+    },
+    {
+      id: "demo-role-4",
+      name: "Ops Custodian",
+      agent: "openclaw",
+      cwd: "~/Documents/Github/ops",
+      model: "claw-2",
+      full_auto: 0,
+      playbook:
+        "Identity: quiet custodian. Rotate local backups, prune downloads, verify disk headroom, and file one paragraph each morning.",
+      notes: "",
+      budget_week_usd: 5,
+      auto_approve: 1,
+      env_max_per_week: 7,
+      env_horizon_days: 14,
+      status: "active",
+      created_at: now - 21 * 86_400_000,
+      updated_at: now - 3 * 86_400_000,
+      mission_id: "demo-mission-3",
+      weekSpend: 1.43,
+    },
+  ];
+}
+
+export function demoInbox(): { messages: InboxMessage[]; unread: number } {
+  const now = Date.now();
+  const messages: InboxMessage[] = [
+    {
+      id: "demo-msg-1",
+      role_id: "demo-role-1",
+      schedule_id: "demo-sched-1",
+      kind: "attention",
+      subject: "Approve: publish the weekly changelog",
+      body: "The draft is ready and the diff is clean. It includes one breaking change — say the word and I will publish.",
+      created_at: now - 12 * 60_000,
+      read_at: null,
+      archived_at: null,
+      role_name: "Release Notes",
+    },
+    {
+      id: "demo-msg-2",
+      role_id: "demo-role-1",
+      schedule_id: null,
+      kind: "report",
+      subject: "Lead Scout — Monday report",
+      body: "14 new leads, 11 scored above threshold, 9 drafts ready. Two pricing questions held for you. Reply rate for the day: 93%.",
+      created_at: now - 2 * 3600_000,
+      read_at: null,
+      archived_at: null,
+      role_name: "Lead Scout",
+    },
+    {
+      id: "demo-msg-3",
+      role_id: "demo-role-2",
+      schedule_id: null,
+      kind: "info",
+      subject: "Reviewer blocked one draft",
+      body: "Blocked a reply that promised a 20% discount. Left the reasoning on the block so you can overrule it.",
+      created_at: now - 5 * 3600_000,
+      read_at: now - 4 * 3600_000,
+      archived_at: null,
+      role_name: "Reply Reviewer",
+    },
+    {
+      id: "demo-msg-4",
+      role_id: "demo-role-4",
+      schedule_id: null,
+      kind: "report",
+      subject: "Ops Custodian — nightly sweep",
+      body: "Backups rotated, 3.2 GB freed from Downloads, disk headroom 145 GB. Nothing needs you.",
+      created_at: now - 9 * 3600_000,
+      read_at: now - 8 * 3600_000,
+      archived_at: null,
+      role_name: "Ops Custodian",
+    },
+  ];
+  return { messages, unread: messages.filter((m) => !m.read_at).length };
+}
+
+export function demoProposals(): Schedule[] {
+  const now = Date.now();
+  return [
+    {
+      id: "demo-prop-1",
+      name: "Publish weekly changelog",
+      when_type: "at",
+      when_value: new Date(now + 2 * 3600_000).toISOString(),
+      action_type: "claude",
+      action_value: JSON.stringify({
+        agent: "claude",
+        prompt:
+          "Publish the prepared changelog entry, then post the link in the team channel. Ask before announcing anything breaking.",
+        cwd: "~/Documents/Github/opencal-agents",
+      }),
+      status: "proposed",
+      fire_at: now + 2 * 3600_000,
+      created_at: now - 30 * 60_000,
+      fired_at: null,
+      result: null,
+      role_id: "demo-role-3",
+      mission_id: null,
+    },
+    {
+      id: "demo-prop-2",
+      name: "Refresh pricing page copy",
+      when_type: "at",
+      when_value: new Date(now + 26 * 3600_000).toISOString(),
+      action_type: "claude",
+      action_value: JSON.stringify({
+        agent: "codex",
+        prompt:
+          "Rewrite the pricing page copy to match the current plans. Keep the structure, tighten the sentences, and flag any claim you cannot verify.",
+        cwd: "~/Documents/Github/opencal-agents",
+      }),
+      status: "proposed",
+      fire_at: now + 26 * 3600_000,
+      created_at: now - 3 * 3600_000,
+      fired_at: null,
+      result: null,
+      role_id: "demo-role-2",
+      mission_id: null,
     },
   ];
 }

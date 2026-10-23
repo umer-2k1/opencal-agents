@@ -1,6 +1,15 @@
 import { invoke } from "@tauri-apps/api/core";
 import { fetch as tauriFetch } from "@tauri-apps/plugin-http";
-import type { EngineStatus, Schedule, Segment, WindowInfo } from "./types";
+import type {
+  EngineStatus,
+  InboxMessage,
+  Mission,
+  MissionPlan,
+  Role,
+  Schedule,
+  Segment,
+  WindowInfo,
+} from "./types";
 
 export const ENGINE_URL = "http://127.0.0.1:4747";
 
@@ -147,4 +156,94 @@ export async function rescheduleJob(
   return send<Schedule>("PATCH", `/api/v1/schedules/${id}`, {
     when: { type: "at", value: new Date(startsAtMs).toISOString() },
   });
+}
+
+// ---- missions -------------------------------------------------------------
+
+export async function fetchMissions(): Promise<Mission[]> {
+  const data = await get<{ missions: Mission[] }>("/api/v1/missions", 4000);
+  return data.missions ?? [];
+}
+
+export async function planMission(
+  goal: string,
+  context = "",
+): Promise<MissionPlan> {
+  const data = await send<{ plan: MissionPlan }>(
+    "POST",
+    "/api/v1/missions/plan",
+    { goal, context },
+  );
+  return data.plan;
+}
+
+export async function cancelMissionPlan(): Promise<void> {
+  await send("POST", "/api/v1/missions/plan/cancel", {});
+}
+
+export async function applyMission(plan: MissionPlan): Promise<Mission> {
+  return send<Mission>("POST", "/api/v1/missions", { plan });
+}
+
+// ---- roles ----------------------------------------------------------------
+
+export async function fetchRoles(): Promise<Role[]> {
+  const data = await get<{ roles: Role[] }>("/api/v1/roles", 4000);
+  return data.roles ?? [];
+}
+
+export async function updateRole(
+  id: string,
+  patch: Partial<Pick<Role, "name" | "status" | "model" | "cwd" | "playbook" | "budget_week_usd">>,
+): Promise<Role> {
+  return send<Role>("PATCH", `/api/v1/roles/${id}`, patch);
+}
+
+export interface NewRoleInput {
+  name: string;
+  agent: Role["agent"];
+  model?: string;
+  cwd?: string;
+  playbook: string;
+  budgetWeekUsd?: number | null;
+}
+
+export async function createRole(input: NewRoleInput): Promise<Role> {
+  return send<Role>("POST", "/api/v1/roles", input);
+}
+
+// ---- inbox & proposals ----------------------------------------------------
+
+export async function fetchInbox(): Promise<{
+  messages: InboxMessage[];
+  unread: number;
+}> {
+  return get<{ messages: InboxMessage[]; unread: number }>(
+    "/api/v1/inbox",
+    4000,
+  );
+}
+
+export async function markRead(ids?: string[]): Promise<{ marked: number }> {
+  return send<{ marked: number }>(
+    "POST",
+    "/api/v1/inbox/read",
+    ids && ids.length ? { ids } : {},
+  );
+}
+
+export async function fetchProposals(): Promise<Schedule[]> {
+  const data = await get<{ proposals: Schedule[] }>(
+    "/api/v1/proposals",
+    4000,
+  );
+  return data.proposals ?? [];
+}
+
+export async function approveProposal(id: string): Promise<Schedule> {
+  return send<Schedule>("POST", `/api/v1/proposals/${id}/approve`, {});
+}
+
+export async function denyProposal(id: string, reason = ""): Promise<void> {
+  await send("POST", `/api/v1/proposals/${id}/deny`, { reason });
 }
