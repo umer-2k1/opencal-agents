@@ -1,0 +1,37 @@
+{
+  "name": "agentcalendar",
+  "version": "0.21.0",
+  "description": "A calendar for your AI coding agents. Local-first: reads Claude Code / Codex session logs, shows them as a week calendar with vendor-confirmed rate-limit windows and resets, queues jobs that fire at the next reset, and exposes everything as a local API (REST + SSE + webhooks) that anything can build on.",
+  "type": "module",
+  "bin": {
+    "agentcalendar": "bin/agentcal.js",
+    "agentcal": "bin/agentcal.js"
+  },
+  "files": [
+    "bin",
+    "src",
+    "README.md"
+  ],
+  "scripts": {
+    "start": "node bin/agentcal.js",
+    "test": "node --test 'test/*.test.js'"
+  },
+  "engines": {
+    "node": ">=22.13"
+  },
+  "homepage": "https://agentcalendar.dev",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/milind-soni/agentcal.git"
+  },
+  "license": "MIT",
+  "keywords": [
+    "claude-code",
+    "codex",
+    "ai-agents",
+    "calendar",
+    "rate-limits",
+    "usage",
+    "scheduler"
+  ]
+}
