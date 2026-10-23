@@ -1,17 +1,25 @@
 import { invoke } from "@tauri-apps/api/core";
+import { fetch as tauriFetch } from "@tauri-apps/plugin-http";
 import type { EngineStatus, Schedule, Segment, WindowInfo } from "./types";
 
 export const ENGINE_URL = "http://127.0.0.1:4747";
 
+const IS_TAURI =
+  typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
+
+// The engine only grants CORS to same-origin callers, so inside the desktop
+// shell we go through Tauri's native HTTP client instead of the webview.
+const request = (IS_TAURI ? tauriFetch : fetch) as typeof fetch;
+
 let cachedToken: string | null = null;
 
 export function inTauri(): boolean {
-  return typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
+  return IS_TAURI;
 }
 
 async function getToken(force = false): Promise<string | null> {
   if (cachedToken && !force) return cachedToken;
-  if (!inTauri()) return null;
+  if (!IS_TAURI) return null;
   try {
     cachedToken = await invoke<string>("engine_token");
     return cachedToken;
@@ -26,15 +34,15 @@ async function get<T>(path: string, timeoutMs = 2500): Promise<T> {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), timeoutMs);
   try {
-    const res = await fetch(`${ENGINE_URL}${path}`, {
-      signal: ctrl.signal,
+    const init: RequestInit = {
       headers: token ? { "x-acal-token": token } : undefined,
-    });
+    };
+    if (!IS_TAURI) init.signal = ctrl.signal;
+    const res = await request(`${ENGINE_URL}${path}`, init);
     if (res.status === 401) {
       const fresh = await getToken(true);
       if (fresh) {
-        const retry = await fetch(`${ENGINE_URL}${path}`, {
-          signal: ctrl.signal,
+        const retry = await request(`${ENGINE_URL}${path}`, {
           headers: { "x-acal-token": fresh },
         });
         if (retry.ok) return (await retry.json()) as T;
@@ -48,10 +56,14 @@ async function get<T>(path: string, timeoutMs = 2500): Promise<T> {
   }
 }
 
-async function post<T>(path: string, body: unknown): Promise<T> {
+async function send<T>(
+  method: "POST" | "PATCH",
+  path: string,
+  body: unknown,
+): Promise<T> {
   const token = await getToken();
-  const res = await fetch(`${ENGINE_URL}${path}`, {
-    method: "POST",
+  const res = await request(`${ENGINE_URL}${path}`, {
+    method,
     headers: {
       "content-type": "application/json",
       ...(token ? { "x-acal-token": token } : {}),
@@ -63,35 +75,11 @@ async function post<T>(path: string, body: unknown): Promise<T> {
     throw new Error(detail || `engine ${res.status}`);
   }
   return (await res.json()) as T;
-}
-
-async function patch<T>(path: string, body: unknown): Promise<T> {
-  const token = await getToken();
-  const res = await fetch(`${ENGINE_URL}${path}`, {
-    method: "PATCH",
-    headers: {
-      "content-type": "application/json",
-      ...(token ? { "x-acal-token": token } : {}),
-    },
-    body: JSON.stringify(body),
-  });
-  if (!res.ok) {
-    const detail = await res.text().catch(() => "");
-    throw new Error(detail || `engine ${res.status}`);
-  }
-  return (await res.json()) as T;
-}
-
-export async function rescheduleJob(
-  id: string,
-  startsAtMs: number,
-): Promise<Schedule> {
-  return patch<Schedule>(`/api/v1/schedules/${id}`, {
-    when: { type: "at", value: new Date(startsAtMs).toISOString() },
-  });
 }
 
 export async function engineStatus(): Promise<EngineStatus | null> {
+  // Browser-only dev runs on demo data; desktop uses the live engine.
+  if (!IS_TAURI) return null;
   try {
     return await get<EngineStatus>("/api/v1/status", 1500);
   } catch {
@@ -100,7 +88,7 @@ export async function engineStatus(): Promise<EngineStatus | null> {
 }
 
 export async function engineStarted(): Promise<boolean> {
-  if (!inTauri()) return false;
+  if (!IS_TAURI) return false;
   try {
     return await invoke<boolean>("start_engine");
   } catch {
@@ -137,7 +125,7 @@ export interface NewJobInput {
 }
 
 export async function createJob(input: NewJobInput): Promise<Schedule> {
-  return post<Schedule>("/api/v1/schedules", {
+  return send<Schedule>("POST", "/api/v1/schedules", {
     name: input.name,
     when: { type: input.whenType, value: input.whenValue },
     action: {
@@ -149,5 +137,14 @@ export async function createJob(input: NewJobInput): Promise<Schedule> {
         ...(input.model ? { model: input.model } : {}),
       },
     },
+  });
+}
+
+export async function rescheduleJob(
+  id: string,
+  startsAtMs: number,
+): Promise<Schedule> {
+  return send<Schedule>("PATCH", `/api/v1/schedules/${id}`, {
+    when: { type: "at", value: new Date(startsAtMs).toISOString() },
   });
 }

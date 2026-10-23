@@ -104,6 +104,19 @@ dialog/drawer state (used for the screenshots above).
 
 - `OPENCAL_ENGINE` — absolute path to `agentcal.js` if you don't use the
   vendored copy.
+- `OPENCAL_NODE` — absolute path to a Node ≥ 22.13 binary if the packaged app
+  can't find one (the app resolves common Homebrew, `/usr/local` and nvm
+  locations automatically).
+
+## Known limitations in v0.1
+
+- The desktop app expects **Node ≥ 22.13** on the machine; the engine uses
+  Node's built-in SQLite. Bundling a Node runtime is planned for v0.2.
+- **Live engine mode requires the desktop shell.** The engine only grants CORS
+  to same-origin callers, so the app talks to it through Tauri's native HTTP
+  client. Browser-only `pnpm dev` intentionally runs on demo data.
+- Job blocks are fixed at 30 minutes on the grid; resize-to-duration is not
+  persisted yet.
 
 ## Data & privacy
 
