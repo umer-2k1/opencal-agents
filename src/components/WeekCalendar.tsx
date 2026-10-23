@@ -1,11 +1,15 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { PointerEvent as ReactPointerEvent } from "react";
+import type {
+  DragEvent as ReactDragEvent,
+  PointerEvent as ReactPointerEvent,
+} from "react";
 import { Flag } from "lucide-react";
 import type { Provider, Schedule, Segment } from "../lib/types";
 import { agentById } from "../lib/types";
 import {
   DAY_MINUTES,
   HOUR_HEIGHT,
+  clamp,
   cn,
   dayNumber,
   fmtTime,
@@ -25,6 +29,8 @@ interface Props {
   onSelectSegment: (s: Segment) => void;
   onSelectSchedule: (s: Schedule) => void;
   onCreateRange: (day: Date, startMin: number, endMin: number) => void;
+  onMoveJob: (schedule: Schedule, startsAt: number) => void;
+  onDropNew: (agent: Provider, day: Date, startMin: number) => void;
 }
 
 type Block = {
@@ -38,6 +44,28 @@ type Block = {
   segment?: Segment;
   schedule?: Schedule;
 };
+
+type CreateDrag = {
+  kind: "create";
+  dayIndex: number;
+  anchor: number;
+  cursor: number;
+  moved: boolean;
+};
+
+type MoveDrag = {
+  kind: "move";
+  id: string;
+  schedule: Schedule;
+  duration: number;
+  grabOffset: number;
+  dayIndex: number;
+  start: number;
+  end: number;
+  moved: boolean;
+};
+
+type DragState = CreateDrag | MoveDrag;
 
 function assignColumns(blocks: Block[]) {
   const sorted = [...blocks].sort((a, b) => a.start - b.start || a.end - b.end);
@@ -81,6 +109,8 @@ function dayStartMs(day: Date) {
   return d.getTime();
 }
 
+const snap15 = (v: number) => Math.round(v / 15) * 15;
+
 export function WeekCalendar({
   weekStart,
   segments,
@@ -90,15 +120,21 @@ export function WeekCalendar({
   onSelectSegment,
   onSelectSchedule,
   onCreateRange,
+  onMoveJob,
+  onDropNew,
 }: Props) {
   const days = useMemo(() => weekDays(weekStart), [weekStart]);
   const scrollRef = useRef<HTMLDivElement>(null);
-  const [drag, setDrag] = useState<{
-    day: number;
-    anchor: number;
-    cursor: number;
-    moved: boolean;
-  } | null>(null);
+  const colRefs = useRef<(HTMLDivElement | null)[]>([]);
+  const dragRef = useRef<DragState | null>(null);
+  const suppressClick = useRef(false);
+  const [drag, setDrag] = useState<DragState | null>(null);
+  const [dropTarget, setDropTarget] = useState<number | null>(null);
+
+  function setDragState(next: DragState | null) {
+    dragRef.current = next;
+    setDrag(next);
+  }
 
   useEffect(() => {
     const el = scrollRef.current;
@@ -157,38 +193,150 @@ export function WeekCalendar({
   const now = Date.now();
   const nowMinutes = minutesOfDay(now);
 
-  function minuteFromEvent(e: ReactPointerEvent<HTMLDivElement>) {
-    const rect = e.currentTarget.getBoundingClientRect();
-    const raw = ((e.clientY - rect.top) / HOUR_HEIGHT) * 60;
-    return Math.min(DAY_MINUTES, Math.max(0, raw));
-  }
-
-  function handlePointerDown(e: ReactPointerEvent<HTMLDivElement>, dayIndex: number) {
-    if (e.button !== 0) return;
-    const minute = minuteFromEvent(e);
-    e.currentTarget.setPointerCapture(e.pointerId);
-    setDrag({ day: dayIndex, anchor: minute, cursor: minute, moved: false });
-  }
-
-  function handlePointerMove(e: ReactPointerEvent<HTMLDivElement>, dayIndex: number) {
-    if (!drag || drag.day !== dayIndex) return;
-    const minute = minuteFromEvent(e);
-    if (Math.abs(minute - drag.anchor) > 3) {
-      setDrag({ ...drag, cursor: minute, moved: true });
+  function dayIndexAtX(clientX: number): number {
+    for (let i = 0; i < 7; i++) {
+      const el = colRefs.current[i];
+      if (!el) continue;
+      const r = el.getBoundingClientRect();
+      if (clientX >= r.left && clientX <= r.right) return i;
     }
+    return -1;
   }
 
-  function handlePointerUp(e: ReactPointerEvent<HTMLDivElement>, dayIndex: number) {
-    if (!drag || drag.day !== dayIndex) return;
-    const minute = minuteFromEvent(e);
-    const moved = drag.moved || Math.abs(minute - drag.anchor) > 8;
-    const from = Math.min(drag.anchor, minute);
-    const to = Math.max(drag.anchor, minute);
-    setDrag(null);
+  function minuteAtY(clientY: number, dayIndex: number): number {
+    const el = colRefs.current[dayIndex];
+    if (!el) return 0;
+    const r = el.getBoundingClientRect();
+    return clamp(((clientY - r.top) / HOUR_HEIGHT) * 60, 0, DAY_MINUTES);
+  }
+
+  function maybeAutoScroll(clientY: number) {
+    const el = scrollRef.current;
+    if (!el) return;
+    const r = el.getBoundingClientRect();
+    if (clientY < r.top + 60) el.scrollTop = Math.max(0, el.scrollTop - 18);
+    else if (clientY > r.bottom - 60) el.scrollTop += 18;
+  }
+
+  // ---- drag on empty grid = create --------------------------------------
+  function handleColumnPointerDown(
+    e: ReactPointerEvent<HTMLDivElement>,
+    dayIndex: number,
+  ) {
+    if (e.button !== 0 || dragRef.current) return;
+    const minute = minuteAtY(e.clientY, dayIndex);
+    e.currentTarget.setPointerCapture(e.pointerId);
+    setDragState({
+      kind: "create",
+      dayIndex,
+      anchor: minute,
+      cursor: minute,
+      moved: false,
+    });
+  }
+
+  function handleColumnPointerMove(
+    e: ReactPointerEvent<HTMLDivElement>,
+    dayIndex: number,
+  ) {
+    const d = dragRef.current;
+    if (!d || d.kind !== "create" || d.dayIndex !== dayIndex) return;
+    const minute = minuteAtY(e.clientY, dayIndex);
+    if (Math.abs(minute - d.anchor) > 3) {
+      setDragState({ ...d, cursor: minute, moved: true });
+    }
+    maybeAutoScroll(e.clientY);
+  }
+
+  function handleColumnPointerUp(
+    e: ReactPointerEvent<HTMLDivElement>,
+    dayIndex: number,
+  ) {
+    const d = dragRef.current;
+    if (!d || d.kind !== "create" || d.dayIndex !== dayIndex) return;
+    const minute = minuteAtY(e.clientY, dayIndex);
+    const moved = d.moved || Math.abs(minute - d.anchor) > 8;
+    setDragState(null);
     if (!moved) return;
-    const snappedFrom = Math.floor(from / 15) * 15;
-    const snappedTo = Math.max(snappedFrom + 15, Math.ceil(to / 15) * 15);
-    onCreateRange(days[dayIndex], snappedFrom, Math.min(DAY_MINUTES, snappedTo));
+    const from = snap15(Math.min(d.anchor, minute));
+    const to = Math.max(from + 15, snap15(Math.max(d.anchor, minute)));
+    onCreateRange(days[dayIndex], from, Math.min(DAY_MINUTES, to));
+  }
+
+  // ---- drag a queued job = move -----------------------------------------
+  function handleJobPointerDown(
+    e: ReactPointerEvent<HTMLButtonElement>,
+    b: Block,
+  ) {
+    e.stopPropagation();
+    if (!b.schedule) return;
+    const idx = dayIndexAtX(e.clientX);
+    if (idx < 0) return;
+    const pointer = minuteAtY(e.clientY, idx);
+    e.currentTarget.setPointerCapture(e.pointerId);
+    setDragState({
+      kind: "move",
+      id: b.schedule.id,
+      schedule: b.schedule,
+      duration: b.end - b.start,
+      grabOffset: pointer - b.start,
+      dayIndex: idx,
+      start: b.start,
+      end: b.end,
+      moved: false,
+    });
+  }
+
+  function handleJobPointerMove(e: ReactPointerEvent<HTMLButtonElement>) {
+    const d = dragRef.current;
+    if (!d || d.kind !== "move") return;
+    const idx = dayIndexAtX(e.clientX);
+    if (idx < 0) return;
+    const pointer = minuteAtY(e.clientY, idx);
+    const start = clamp(
+      snap15(pointer - d.grabOffset),
+      0,
+      DAY_MINUTES - d.duration,
+    );
+    if (idx !== d.dayIndex || Math.abs(start - d.start) > 0.5) {
+      setDragState({
+        ...d,
+        dayIndex: idx,
+        start,
+        end: start + d.duration,
+        moved: true,
+      });
+    }
+    maybeAutoScroll(e.clientY);
+  }
+
+  function handleJobPointerUp(e: ReactPointerEvent<HTMLButtonElement>) {
+    const d = dragRef.current;
+    if (!d || d.kind !== "move") return;
+    e.stopPropagation();
+    if (d.moved) {
+      const startsAt = dayStartMs(days[d.dayIndex]) + d.start * 60_000;
+      onMoveJob(d.schedule, startsAt);
+      suppressClick.current = true;
+    }
+    setDragState(null);
+  }
+
+  // ---- HTML5 drop from the quick-schedule tray ---------------------------
+  function handleDragOver(e: ReactDragEvent<HTMLDivElement>, dayIndex: number) {
+    if (!e.dataTransfer.types.includes("application/x-opencal-agent")) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "copy";
+    setDropTarget(dayIndex);
+  }
+
+  function handleDrop(e: ReactDragEvent<HTMLDivElement>, dayIndex: number) {
+    e.preventDefault();
+    const agent = e.dataTransfer.getData("application/x-opencal-agent") as Provider;
+    setDropTarget(null);
+    if (!agent) return;
+    const minute = snap15(minuteAtY(e.clientY, dayIndex));
+    onDropNew(agent, days[dayIndex], minute);
   }
 
   return (
@@ -259,33 +407,53 @@ export function WeekCalendar({
                 className="absolute right-2 -translate-y-1/2 text-[10px] tabular-nums text-mist-400/60"
                 style={{ top: h * HOUR_HEIGHT }}
               >
-                {h === 0 ? "12 AM" : h < 12 ? `${h} AM` : h === 12 ? "12 PM" : `${h - 12} PM`}
+                {h === 0
+                  ? "12 AM"
+                  : h < 12
+                    ? `${h} AM`
+                    : h === 12
+                      ? "12 PM"
+                      : `${h - 12} PM`}
               </div>
             ))}
           </div>
 
           {days.map((day, dayIndex) => {
-            const isDragDay = drag?.day === dayIndex;
-            const ghostFrom = isDragDay
-              ? Math.min(drag!.anchor, drag!.cursor)
-              : 0;
-            const ghostTo = isDragDay
-              ? Math.max(drag!.anchor, drag!.cursor)
-              : 0;
             const today = isToday(day);
             const { layout, blocks } = dayData[dayIndex];
+
+            const createGhost =
+              drag?.kind === "create" && drag.dayIndex === dayIndex
+                ? {
+                    from: Math.min(drag.anchor, drag.cursor),
+                    to: Math.max(drag.anchor, drag.cursor),
+                  }
+                : null;
+
+            const moveGhost =
+              drag?.kind === "move" && drag.dayIndex === dayIndex
+                ? { from: drag.start, to: drag.end, title: drag.schedule.name }
+                : null;
 
             return (
               <div
                 key={day.toISOString()}
+                ref={(el) => {
+                  colRefs.current[dayIndex] = el;
+                }}
                 className={cn(
                   "relative border-r border-ink-800 last:border-r-0",
                   today && "bg-brand/[0.02]",
+                  dropTarget === dayIndex &&
+                    "bg-brand/[0.05] ring-1 ring-inset ring-brand/30",
                 )}
                 style={{ height: 24 * HOUR_HEIGHT }}
-                onPointerDown={(e) => handlePointerDown(e, dayIndex)}
-                onPointerMove={(e) => handlePointerMove(e, dayIndex)}
-                onPointerUp={(e) => handlePointerUp(e, dayIndex)}
+                onPointerDown={(e) => handleColumnPointerDown(e, dayIndex)}
+                onPointerMove={(e) => handleColumnPointerMove(e, dayIndex)}
+                onPointerUp={(e) => handleColumnPointerUp(e, dayIndex)}
+                onDragOver={(e) => handleDragOver(e, dayIndex)}
+                onDragLeave={() => setDropTarget(null)}
+                onDrop={(e) => handleDrop(e, dayIndex)}
               >
                 {/* hour lines */}
                 {Array.from({ length: 24 }, (_, h) => (
@@ -320,6 +488,7 @@ export function WeekCalendar({
                   const pos = layout.get(b.key) ?? { col: 0, cols: 1 };
                   const meta = agentById(b.provider);
                   const isJob = b.kind === "job";
+                  const dragging = drag?.kind === "move" && drag.id === b.schedule?.id;
                   const height = Math.max(
                     isJob ? 24 : 22,
                     ((b.end - b.start) / 60) * HOUR_HEIGHT - 2,
@@ -331,32 +500,42 @@ export function WeekCalendar({
                   return (
                     <button
                       key={b.key}
-                      onPointerDown={(e) => e.stopPropagation()}
+                      onPointerDown={(e) => handleJobPointerDown(e, b)}
+                      onPointerMove={handleJobPointerMove}
+                      onPointerUp={handleJobPointerUp}
                       onClick={(e) => {
                         e.stopPropagation();
+                        if (suppressClick.current) {
+                          suppressClick.current = false;
+                          return;
+                        }
                         if (b.segment) onSelectSegment(b.segment);
                         else if (b.schedule) onSelectSchedule(b.schedule);
                       }}
                       className={cn(
                         "group absolute z-10 overflow-hidden rounded-[5px] px-1.5 py-1 text-left transition-shadow",
                         "hover:z-20 hover:shadow-[0_8px_24px_rgba(0,0,0,0.45)]",
+                        isJob && "cursor-grab active:cursor-grabbing",
                         isJob && "border border-dashed",
                         selected && "ring-1 ring-white/60",
+                        dragging && "opacity-40",
                       )}
                       style={{
                         top: (b.start / 60) * HOUR_HEIGHT + 1,
                         height,
                         left: `calc(${pos.col * widthPct}% + 1px)`,
                         width: `calc(${widthPct}% - 2px)`,
-                        background: isJob
-                          ? "rgba(184,242,74,0.07)"
-                          : meta.soft,
+                        background: isJob ? "rgba(184,242,74,0.07)" : meta.soft,
                         borderLeft: isJob
                           ? "2px dashed rgba(184,242,74,0.65)"
                           : `2px solid ${meta.color}`,
                         borderColor: isJob ? "rgba(184,242,74,0.35)" : undefined,
                       }}
-                      title={`${b.title} — ${b.subtitle}`}
+                      title={
+                        isJob
+                          ? `${b.title} — drag to reschedule`
+                          : `${b.title} — ${b.subtitle}`
+                      }
                     >
                       <div className="flex items-start gap-1">
                         {isJob && (
@@ -377,10 +556,8 @@ export function WeekCalendar({
                           </div>
                           {height > 34 && (
                             <div className="mt-0.5 truncate text-[9.5px] leading-tight text-white/50">
-                              {fmtTime(
-                                dayStartMs(day) + b.start * 60_000,
-                              )}{" "}
-                              · {b.subtitle}
+                              {fmtTime(dayStartMs(day) + b.start * 60_000)} ·{" "}
+                              {b.subtitle}
                             </div>
                           )}
                         </div>
@@ -389,20 +566,39 @@ export function WeekCalendar({
                   );
                 })}
 
-                {/* drag ghost */}
-                {isDragDay && ghostTo - ghostFrom > 2 && (
+                {/* create ghost */}
+                {createGhost && createGhost.to - createGhost.from > 2 && (
                   <div
                     className="pointer-events-none absolute inset-x-[2px] z-30 rounded-[4px] border border-brand/70 bg-brand/15"
                     style={{
-                      top: (ghostFrom / 60) * HOUR_HEIGHT,
+                      top: (createGhost.from / 60) * HOUR_HEIGHT,
                       height: Math.max(
                         18,
-                        ((ghostTo - ghostFrom) / 60) * HOUR_HEIGHT,
+                        ((createGhost.to - createGhost.from) / 60) * HOUR_HEIGHT,
                       ),
                     }}
                   >
                     <div className="px-1.5 pt-1 text-[9px] font-semibold text-brand">
-                      {fmtTime(dayStartMs(day) + ghostFrom * 60_000)}
+                      {fmtTime(dayStartMs(day) + createGhost.from * 60_000)}
+                    </div>
+                  </div>
+                )}
+
+                {/* move ghost */}
+                {moveGhost && (
+                  <div
+                    className="pointer-events-none absolute inset-x-[2px] z-30 rounded-[4px] border border-brand bg-brand/20 shadow-[0_8px_24px_rgba(0,0,0,0.4)]"
+                    style={{
+                      top: (moveGhost.from / 60) * HOUR_HEIGHT,
+                      height: Math.max(
+                        22,
+                        ((moveGhost.to - moveGhost.from) / 60) * HOUR_HEIGHT,
+                      ),
+                    }}
+                  >
+                    <div className="truncate px-1.5 pt-1 text-[9.5px] font-semibold text-brand">
+                      {fmtTime(dayStartMs(day) + moveGhost.from * 60_000)} ·{" "}
+                      {moveGhost.title}
                     </div>
                   </div>
                 )}

@@ -52,6 +52,10 @@ session id — and for jobs, the exact prompt and result.
 - **Click any block** for a detail drawer: project, model, tokens, duration,
   working directory, session id.
 - **Drag on the grid** to open a pre-filled job dialog.
+- **Drag queued jobs** between days and times — snapped to 15 minutes, with a
+  live drop ghost and auto-scroll near the edges.
+- **Quick schedule tray** in the sidebar: drag an agent chip onto the grid to
+  create a job at that slot.
 - **Schedule a job**: name, agent, prompt, working directory, and either
   "at next reset" or a specific time.
 - **Queued jobs** render as dashed blocks on the calendar.
@@ -61,8 +65,8 @@ session id — and for jobs, the exact prompt and result.
 
 | Version | Scope |
 | --- | --- |
-| **v0.1** | Week calendar, lanes, receipts drawer, drag-to-schedule ✅ |
-| **v0.2** | Kanban drag-and-drop, missions, roles/playbooks, inbox + approvals |
+| **v0.1** | Week calendar, lanes, receipts drawer, drag-to-schedule, Kanban drag-and-drop ✅ |
+| **v0.2** | Missions, roles/playbooks, inbox + approvals |
 | **v0.3** | Webhooks UI, iCal feed, Tailscale pairing |
 | **v0.4** | Self-hosted run target (Docker) + browser terminal |
 | **v0.5** | Windows/Linux packaging, auto-update |

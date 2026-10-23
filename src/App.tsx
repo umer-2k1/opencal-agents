@@ -27,6 +27,7 @@ import {
   engineStatus,
   fetchSchedules,
   fetchSegments,
+  rescheduleJob,
   type NewJobInput,
 } from "./lib/api";
 import { demoSchedules, demoWeek } from "./lib/demo";
@@ -56,6 +57,7 @@ export default function App() {
   const [selectedSchedule, setSelectedSchedule] = useState<Schedule | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [dialogStart, setDialogStart] = useState<Date | null>(null);
+  const [dialogAgent, setDialogAgent] = useState<Provider>("claude");
   const [toast, setToast] = useState<Toast | null>(null);
 
   function notify(message: string, tone: "ok" | "warn" = "ok") {
@@ -165,7 +167,8 @@ export default function App() {
     });
   }
 
-  function openNewJob(start: Date | null) {
+  function openNewJob(start: Date | null, agent: Provider = "claude") {
+    setDialogAgent(agent);
     setDialogStart(start);
     setDialogOpen(true);
   }
@@ -173,7 +176,49 @@ export default function App() {
   function createRange(day: Date, startMin: number, _endMin: number) {
     const start = new Date(day);
     start.setHours(0, startMin, 0, 0);
-    openNewJob(start);
+    openNewJob(start, "claude");
+  }
+
+  async function moveJob(schedule: Schedule, startsAt: number) {
+    const label = new Date(startsAt).toLocaleString([], {
+      weekday: "short",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+    if (mode === "live") {
+      try {
+        const updated = await rescheduleJob(schedule.id, startsAt);
+        setSchedules((prev) =>
+          prev.map((s) => (s.id === schedule.id ? { ...s, ...updated } : s)),
+        );
+        setSelectedSchedule((cur) =>
+          cur && cur.id === schedule.id ? { ...cur, ...updated } : cur,
+        );
+        notify(`Moved to ${label}`);
+      } catch {
+        notify("Could not move that job — the engine rejected it", "warn");
+      }
+      return;
+    }
+    setSchedules((prev) =>
+      prev.map((s) =>
+        s.id === schedule.id
+          ? {
+              ...s,
+              when_type: "at",
+              when_value: new Date(startsAt).toISOString(),
+              fire_at: startsAt,
+            }
+          : s,
+      ),
+    );
+    notify(`Moved to ${label} (demo)`);
+  }
+
+  function dropNew(agent: Provider, day: Date, startMin: number) {
+    const start = new Date(day);
+    start.setHours(0, startMin, 0, 0);
+    openNewJob(start, agent);
   }
 
   async function submitJob(input: NewJobInput) {
@@ -231,8 +276,7 @@ export default function App() {
               onPrev={() => setWeekStart((w) => addWeeks(w, -1))}
               onNext={() => setWeekStart((w) => addWeeks(w, 1))}
               onToday={() => setWeekStart(startOfWeekMonday(new Date()))}
-              onNewJob={() => openNewJob(null)}
-              onRefresh={() => void load()}
+              onNewJob={() => openNewJob(null)}              onRefresh={() => void load()}
               syncing={syncing}
               mode={mode}
               activeCount={activeCount}
@@ -256,6 +300,8 @@ export default function App() {
                 setSelectedSchedule(s);
               }}
               onCreateRange={createRange}
+              onMoveJob={moveJob}
+              onDropNew={dropNew}
             />
             <footer className="flex shrink-0 items-center gap-3 overflow-hidden whitespace-nowrap border-t border-ink-700/70 bg-ink-900/60 px-4 py-2 text-[10.5px] text-mist-400">
               <span className="flex shrink-0 items-center gap-1.5">
@@ -296,6 +342,7 @@ export default function App() {
       <NewJobDialog
         open={dialogOpen}
         initialStart={dialogStart}
+        initialAgent={dialogAgent}
         onClose={() => setDialogOpen(false)}
         onSubmit={submitJob}
       />

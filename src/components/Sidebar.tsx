@@ -1,5 +1,6 @@
 import {
   CalendarDays,
+  GripVertical,
   Inbox,
   Settings,
   Sparkles,
@@ -127,6 +128,38 @@ export function Sidebar({
             );
           })}
         </div>
+      </div>
+
+      <div className="mt-5 px-5">
+        <div className="mb-2 flex items-center justify-between">
+          <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-mist-400">
+            Quick schedule
+          </span>
+          <GripVertical size={11} className="text-mist-400/50" />
+        </div>
+        <div className="grid grid-cols-2 gap-1.5">
+          {AGENTS.map((agent) => (
+            <div
+              key={agent.id}
+              draggable
+              onDragStart={(e) => {
+                e.dataTransfer.setData("application/x-opencal-agent", agent.id);
+                e.dataTransfer.effectAllowed = "copy";
+              }}
+              title={`Drag ${agent.name} onto the calendar`}
+              className="flex cursor-grab items-center gap-1.5 rounded-md border border-ink-700 bg-ink-850 px-2 py-1.5 text-[10.5px] text-mist-300 transition-colors hover:border-ink-600 hover:text-white active:cursor-grabbing"
+            >
+              <span
+                className="h-1.5 w-1.5 shrink-0 rounded-[2px]"
+                style={{ background: agent.color }}
+              />
+              <span className="truncate">{agent.short}</span>
+            </div>
+          ))}
+        </div>
+        <p className="mt-1.5 text-[9.5px] leading-snug text-mist-400/70">
+          Drag a chip onto the grid, or drag a queued job to move it.
+        </p>
       </div>
 
       <div className="mt-auto border-t border-ink-700/70 p-4">

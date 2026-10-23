@@ -65,6 +65,32 @@ async function post<T>(path: string, body: unknown): Promise<T> {
   return (await res.json()) as T;
 }
 
+async function patch<T>(path: string, body: unknown): Promise<T> {
+  const token = await getToken();
+  const res = await fetch(`${ENGINE_URL}${path}`, {
+    method: "PATCH",
+    headers: {
+      "content-type": "application/json",
+      ...(token ? { "x-acal-token": token } : {}),
+    },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const detail = await res.text().catch(() => "");
+    throw new Error(detail || `engine ${res.status}`);
+  }
+  return (await res.json()) as T;
+}
+
+export async function rescheduleJob(
+  id: string,
+  startsAtMs: number,
+): Promise<Schedule> {
+  return patch<Schedule>(`/api/v1/schedules/${id}`, {
+    when: { type: "at", value: new Date(startsAtMs).toISOString() },
+  });
+}
+
 export async function engineStatus(): Promise<EngineStatus | null> {
   try {
     return await get<EngineStatus>("/api/v1/status", 1500);
