@@ -67,6 +67,8 @@ export function runCodexJob(spec) {
   // same deal as ANTHROPIC_API_KEY in the claude driver: the CLI owns its own
   // ChatGPT login, and a leaked API key silently flips billing to pay-as-you-go
   delete env.OPENAI_API_KEY
+  // spawn() changes cwd but leaves PWD inherited from the app.
+  env.PWD = spec.cwd
 
   const child = spawn(CODEX_CLI, ['app-server'], {
     cwd: spec.cwd,

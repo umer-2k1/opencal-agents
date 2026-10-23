@@ -62,6 +62,7 @@ export function NewJobDialog({
   const [cwd, setCwd] = useState("~");
   const [whenType, setWhenType] = useState<"next_reset" | "at">("next_reset");
   const [whenValue, setWhenValue] = useState("");
+  const [model, setModel] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -71,6 +72,7 @@ export function NewJobDialog({
     setAgent(initialAgent);
     setPrompt(initialPrompt);
     setCwd(initialCwd || "~");
+    setModel("");
     setError(null);
     setBusy(false);
     if (initialStart) {
@@ -113,6 +115,7 @@ export function NewJobDialog({
         cwd: cwd.trim(),
         whenType,
         whenValue: whenType === "next_reset" ? agent : whenValue,
+        model: model.trim() || undefined,
       });
       onClose();
     } catch (err) {
@@ -229,6 +232,29 @@ export function NewJobDialog({
                 placeholder="~/Documents/Github/my-project"
                 className="border-ink-700 bg-ink-850 font-mono text-[11.5px]"
               />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label
+                htmlFor="job-model"
+                className="text-[10px] font-semibold uppercase tracking-wider text-mist-400"
+              >
+                Model <span className="normal-case opacity-60">(optional)</span>
+              </Label>
+              <Input
+                id="job-model"
+                value={model}
+                onChange={(e) => setModel(e.target.value)}
+                placeholder="agent default"
+                className="border-ink-700 bg-ink-850 font-mono text-[11.5px]"
+              />
+              {agent === "opencode" && (
+                <p className="text-[9.5px] leading-snug text-mist-400/70">
+                  OpenCode needs an explicit model, e.g.{" "}
+                  <span className="font-mono">opencode/mimo-v2.6-flash-free</span>.
+                  The default free model can be unavailable.
+                </p>
+              )}
             </div>
 
             <div className="space-y-1.5">

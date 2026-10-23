@@ -353,6 +353,7 @@ export default function App() {
         agent: input.agent,
         prompt: input.prompt,
         cwd: input.cwd,
+        ...(input.model ? { model: input.model } : {}),
       }),
       status: "pending",
       fire_at: Number.isFinite(fireAt) ? fireAt : Date.now() + 3_600_000,

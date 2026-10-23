@@ -105,6 +105,8 @@ export function runClaudeJob(spec) {
   // (dogfooding), don't let the nested CLI inherit that session's identity
   delete env.CLAUDECODE
   delete env.CLAUDE_CODE_ENTRYPOINT
+  // spawn() changes cwd but leaves PWD inherited from the app.
+  env.PWD = spec.cwd
 
   const child = spawn(CLI, argsFor(spec), {
     cwd: spec.cwd,

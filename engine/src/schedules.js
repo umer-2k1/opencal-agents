@@ -540,7 +540,15 @@ export function createScheduler(db, cfg, bus, hq = null) {
     if (hasTmux && !spec.headless) return fireClaudeTmux(s, spec, audit, logFile)
     const basePromise = gitHead(spec.cwd)
     const [bin, ...args] = agentCommand(spec)
-    const child = spawn(bin, args, { cwd: spec.cwd, env: process.env })
+    const child = spawn(bin, args, {
+      cwd: spec.cwd,
+      // spawn() changes cwd but leaves PWD inherited from the app. CLIs that
+      // trust PWD (OpenCode does) run in the wrong directory and can hang.
+      env: { ...process.env, PWD: spec.cwd || process.cwd() },
+      // Headless one-shot CLIs must not inherit an open stdin pipe: OpenCode
+      // blocks waiting for EOF and the job stays "running" forever.
+      stdio: ['ignore', 'pipe', 'pipe'],
+    })
     const log = createWriteStream(logFile)
     log.write(`# agentcal run ${s.id}\n# ${JSON.stringify(audit)}\n\n`)
     child.stdout.pipe(log, { end: false })
@@ -783,7 +791,9 @@ export function createScheduler(db, cfg, bus, hq = null) {
     if (spec.agent === 'opencode') {
       // run = the non-interactive mode; model is provider/model form
       // (e.g. openrouter/moonshotai/kimi-k3); --auto approves permissions
-      return ['opencode', 'run',
+      // OpenCal patch: a scheduled run must not depend on the desktop app's
+      // background service — --standalone starts a private server per run.
+      return ['opencode', 'run', '--standalone',
         ...(spec.model ? ['-m', spec.model] : []),
         ...(spec.fullAuto ? ['--auto'] : []),
         spec.prompt]

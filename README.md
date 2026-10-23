@@ -95,6 +95,12 @@ approve or deny.
 - **Queued jobs** render as dashed blocks on the calendar.
 - **Auto-refresh** every 12 seconds and on window focus.
 
+### Verified end-to-end
+
+- **OpenCode**: a job scheduled through the engine fired on time, ran headless
+  in a throwaway git repo, created `SCHEDULED.md`, and returned a receipt —
+  `outcome: changed`, `1 file`, `+1` insertion, exit `0`, ~10 s.
+
 ## Roadmap
 
 | Version | Scope |
@@ -151,6 +157,12 @@ dialog/drawer state (used for the screenshots above).
   client. Browser-only `pnpm dev` intentionally runs on demo data.
 - Job blocks are fixed at 30 minutes on the grid; resize-to-duration is not
   persisted yet.
+- **OpenCode jobs should set an explicit model** (`opencode/<model>`). Its
+  bundled default (`flint-40b-free`) can hang, and paid models require account
+  funds. The job dialog now has a Model field.
+- Headless one-shot agents run with **stdin closed** and **`PWD` set to the
+  job's working directory**. Both are required for OpenCode and harmless for
+  the other agents; without them a scheduled run can sit in `running` forever.
 
 ## Data & privacy
 

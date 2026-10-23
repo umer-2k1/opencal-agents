@@ -62,8 +62,67 @@ fn node_binary() -> PathBuf {
     PathBuf::from("node")
 }
 
-fn engine_script(app: &tauri::AppHandle) -> Option<PathBuf> {
-    if let Ok(explicit) = std::env::var("OPENCAL_ENGINE") {
+/// The app may be launched from Finder with a minimal PATH, and agent CLIs
+/// often live outside it (OpenCode in ~/.opencode/bin, Codex/Hermes in
+/// ~/.local/bin, nvm/npm globals under ~/.nvm). Build a PATH that includes
+/// those before starting the engine.
+fn agent_path() -> String {
+    use std::collections::HashSet;
+
+    let mut parts: Vec<String> = Vec::new();
+
+    if let Ok(home) = std::env::var("HOME") {
+        let h = PathBuf::from(&home);
+        for rel in [".opencode/bin", ".local/bin", ".bun/bin", ".cargo/bin"] {
+            let p = h.join(rel);
+            if p.exists() {
+                parts.push(p.to_string_lossy().into_owned());
+            }
+        }
+
+        let root = h.join(".nvm/versions/node");
+        if let Ok(entries) = std::fs::read_dir(&root) {
+            let mut dirs: Vec<PathBuf> = entries.flatten().map(|e| e.path()).collect();
+            dirs.sort_by_key(|p| std::fs::metadata(p).and_then(|m| m.modified()).ok());
+            if let Some(dir) = dirs.last() {
+                let bin = dir.join("bin");
+                if bin.exists() {
+                    parts.push(bin.to_string_lossy().into_owned());
+                }
+            }
+        }
+    }
+
+    for p in [
+        "/usr/local/bin",
+        "/opt/homebrew/bin",
+        "/usr/bin",
+        "/bin",
+        "/usr/sbin",
+        "/sbin",
+    ] {
+        if PathBuf::from(p).exists() {
+            parts.push(p.to_string());
+        }
+    }
+
+    if let Ok(existing) = std::env::var("PATH") {
+        for p in existing.split(':') {
+            if !p.is_empty() {
+                parts.push(p.to_string());
+            }
+        }
+    }
+
+    let mut seen = HashSet::new();
+    parts
+        .into_iter()
+        .filter(|p| seen.insert(p.clone()))
+        .collect::<Vec<_>>()
+        .join(":")
+}
+
+fn engine_script(app: &tauri::AppHandle) -> Option<PathBuf> {    if let Ok(explicit) = std::env::var("OPENCAL_ENGINE") {
         let path = PathBuf::from(explicit);
         if path.exists() {
             return Some(path);
@@ -126,12 +185,24 @@ fn start_engine(app: tauri::AppHandle) -> Result<bool, String> {
     };
 
     let node = node_binary();
-    Command::new(&node)
-        .arg(&script)
+    let mut cmd = Command::new(&node);
+    cmd.arg(&script)
+        .env("PATH", agent_path())
         .stdin(Stdio::null())
         .stdout(Stdio::null())
-        .stderr(Stdio::null())
-        .spawn()
+        .stderr(Stdio::null());
+
+    // The OpenCode desktop app injects OPENCODE_CLIENT / OPENCODE_SESSION_ID /
+    // OPENCODE_TERMINAL into every process it launches. Those point the CLI at
+    // the desktop session and make a scheduled `opencode run` retry a dead
+    // endpoint. Scheduled runs need a clean slate.
+    for (key, _) in std::env::vars() {
+        if key == "OPENCODE" || key.starts_with("OPENCODE_") {
+            cmd.env_remove(&key);
+        }
+    }
+
+    cmd.spawn()
         .map_err(|e| {
             STARTED.store(false, Ordering::SeqCst);
             format!("could not start {}: {e}", node.display())
