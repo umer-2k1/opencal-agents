@@ -5,6 +5,7 @@ import {
   Copy,
   Folder,
   Hash,
+  RotateCcw,
   Zap,
 } from "lucide-react";
 import type { Schedule, Segment } from "../lib/types";
@@ -24,6 +25,7 @@ import { Separator } from "@/components/ui/separator";
 interface Props {
   segment?: Segment | null;
   schedule?: Schedule | null;
+  onRerun?: (segment: Segment) => void;
   onClose: () => void;
 }
 
@@ -57,7 +59,7 @@ function parseAction(value: string): Record<string, unknown> {
   }
 }
 
-export function JobDrawer({ segment, schedule, onClose }: Props) {
+export function JobDrawer({ segment, schedule, onRerun, onClose }: Props) {
   const open = !!segment || !!schedule;
   const isJob = !!schedule;
   const agent = agentById(isJob ? "claude" : segment?.provider ?? "claude");
@@ -244,14 +246,25 @@ export function JobDrawer({ segment, schedule, onClose }: Props) {
 
         <Separator />
 
-        <div className="flex items-center gap-2 p-4">
-          <Button variant="outline" onClick={copy} className="flex-1 gap-1.5">
-            <Copy size={13} />
-            Copy details
-          </Button>
-          <Button variant="secondary" onClick={onClose} className="flex-1">
-            Close
-          </Button>
+        <div className="flex flex-col gap-2 p-4">
+          {segment && onRerun && (
+            <Button
+              onClick={() => onRerun(segment)}
+              className="w-full gap-1.5"
+            >
+              <RotateCcw size={13} />
+              Re-run as job
+            </Button>
+          )}
+          <div className="flex items-center gap-2">
+            <Button variant="outline" onClick={copy} className="flex-1 gap-1.5">
+              <Copy size={13} />
+              Copy details
+            </Button>
+            <Button variant="secondary" onClick={onClose} className="flex-1">
+              Close
+            </Button>
+          </div>
         </div>
       </SheetContent>
     </Sheet>

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { PointerEvent as ReactPointerEvent } from "react";
 import { addDays, addWeeks } from "date-fns";
-import { CheckCircle2 } from "lucide-react";
+import { CheckCircle2, GripVertical } from "lucide-react";
 import { Header } from "./components/Header";
 import { Sidebar, type NavKey } from "./components/Sidebar";
 import { WeekCalendar } from "./components/WeekCalendar";
@@ -20,8 +21,8 @@ import {
   type NewJobInput,
 } from "./lib/api";
 import { demoSchedules, demoWeek } from "./lib/demo";
-import { AGENTS, type Provider, type Schedule, type Segment } from "./lib/types";
-import { startOfWeekMonday } from "./lib/time";
+import { AGENTS, agentById, type Provider, type Schedule, type Segment } from "./lib/types";
+import { HOUR_HEIGHT, startOfWeekMonday } from "./lib/time";
 
 type Mode = "connecting" | "live" | "demo";
 
@@ -57,6 +58,18 @@ export default function App() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [dialogStart, setDialogStart] = useState<Date | null>(null);
   const [dialogAgent, setDialogAgent] = useState<Provider>("claude");
+  const [dialogPrompt, setDialogPrompt] = useState("");
+  const [dialogCwd, setDialogCwd] = useState("~");
+  const [dialogName, setDialogName] = useState("");
+  const [templateDrag, setTemplateDrag] = useState<{
+    agent: Provider;
+    x: number;
+    y: number;
+    dayIndex: number | null;
+  } | null>(null);
+  const templateRef = useRef<{ agent: Provider; x: number; y: number } | null>(
+    null,
+  );
   const [toast, setToast] = useState<Toast | null>(null);
 
   function notify(message: string, tone: "ok" | "warn" = "ok") {
@@ -68,6 +81,63 @@ export default function App() {
     const id = setTimeout(() => setToast(null), 3800);
     return () => clearTimeout(id);
   }, [toast]);
+
+  // Pointer-based drag from the quick-schedule chips. This works inside the
+  // Tauri webview, where native drag interception can swallow HTML5 DnD.
+  const templateActive = !!templateDrag;
+  useEffect(() => {
+    if (!templateActive) return;
+
+    function dayAt(x: number, y: number): number | null {
+      const el = document
+        .elementFromPoint(x, y)
+        ?.closest("[data-day-index]") as HTMLElement | null;
+      if (!el) return null;
+      const n = Number(el.dataset.dayIndex);
+      return Number.isFinite(n) ? n : null;
+    }
+
+    function onMove(e: PointerEvent) {
+      const t = templateRef.current;
+      if (!t) return;
+      templateRef.current = { ...t, x: e.clientX, y: e.clientY };
+      setTemplateDrag({
+        agent: t.agent,
+        x: e.clientX,
+        y: e.clientY,
+        dayIndex: dayAt(e.clientX, e.clientY),
+      });
+    }
+
+    function onUp(e: PointerEvent) {
+      const t = templateRef.current;
+      const dayIndex = dayAt(e.clientX, e.clientY);
+      templateRef.current = null;
+      setTemplateDrag(null);
+      if (!t || dayIndex == null) return;
+      const col = document.querySelector(
+        `[data-day-index="${dayIndex}"]`,
+      ) as HTMLElement | null;
+      if (!col) return;
+      const rect = col.getBoundingClientRect();
+      const minute = Math.max(
+        0,
+        Math.min(1440, ((e.clientY - rect.top) / HOUR_HEIGHT) * 60),
+      );
+      const snapped = Math.round(minute / 15) * 15;
+      const day = addDays(weekStart, dayIndex);
+      const start = new Date(day);
+      start.setHours(0, snapped, 0, 0);
+      openNewJob(start, t.agent);
+    }
+
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp, { once: true });
+    return () => {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+    };
+  }, [templateActive, weekStart]);
 
   // Reproducible states for docs screenshots (`?shot=dialog` / `?shot=detail`).
   const shotHandled = useRef(false);
@@ -166,9 +236,16 @@ export default function App() {
     });
   }
 
-  function openNewJob(start: Date | null, agent: Provider = "claude") {
+  function openNewJob(
+    start: Date | null,
+    agent: Provider = "claude",
+    opts?: { prompt?: string; cwd?: string; name?: string },
+  ) {
     setDialogAgent(agent);
     setDialogStart(start);
+    setDialogPrompt(opts?.prompt ?? "");
+    setDialogCwd(opts?.cwd ?? "~");
+    setDialogName(opts?.name ?? "");
     setDialogOpen(true);
   }
 
@@ -220,6 +297,38 @@ export default function App() {
     openNewJob(start, agent);
   }
 
+  function beginTemplate(agent: Provider, e: ReactPointerEvent) {
+    e.preventDefault();
+    templateRef.current = { agent, x: e.clientX, y: e.clientY };
+    setTemplateDrag({ agent, x: e.clientX, y: e.clientY, dayIndex: null });
+  }
+
+  function continuationPrompt(segment: Segment) {
+    const title = segment.title || segment.project || "previous session";
+    return `Continue the work from the "${title}" session${
+      segment.project ? ` in ${segment.project}` : ""
+    }. Review what was done, then continue from where it left off. Ask before making risky changes.`;
+  }
+
+  function rerunSession(segment: Segment, day: Date, startMin: number) {
+    const start = new Date(day);
+    start.setHours(0, startMin, 0, 0);
+    openNewJob(start, segment.provider, {
+      name: `Continue: ${segment.title || segment.project || "session"}`.slice(0, 60),
+      prompt: continuationPrompt(segment),
+      cwd: segment.cwd || "~",
+    });
+  }
+
+  function rerunNow(segment: Segment) {
+    const start = new Date(Date.now() + 60 * 60_000);
+    openNewJob(start, segment.provider, {
+      name: `Continue: ${segment.title || segment.project || "session"}`.slice(0, 60),
+      prompt: continuationPrompt(segment),
+      cwd: segment.cwd || "~",
+    });
+  }
+
   async function submitJob(input: NewJobInput) {
     if (mode === "live") {
       const created = await createJob(input);
@@ -265,6 +374,7 @@ export default function App() {
         counts={counts}
         mode={mode}
         version={version}
+        onBeginTemplate={beginTemplate}
       />
 
       <main className="flex min-w-0 flex-1 flex-col">
@@ -281,6 +391,11 @@ export default function App() {
               mode={mode}
               activeCount={activeCount}
             />
+            <div className="flex shrink-0 items-center gap-2 border-b border-ink-800 bg-brand/[0.03] px-6 py-1.5 text-[10px] text-mist-400">
+              <GripVertical size={11} className="text-brand" />
+              Drag any block — jobs move, sessions re-run — or drag a lane chip
+              onto the grid. Drag empty space to create.
+            </div>
             <WeekCalendar
               weekStart={weekStart}
               segments={segments}
@@ -301,7 +416,9 @@ export default function App() {
               }}
               onCreateRange={createRange}
               onMoveJob={moveJob}
+              onSessionDrag={rerunSession}
               onDropNew={dropNew}
+              templateDay={templateDrag?.dayIndex ?? null}
             />
             <footer className="flex shrink-0 items-center gap-3 overflow-hidden whitespace-nowrap border-t border-ink-700/70 bg-ink-900/60 px-4 py-2 text-[10.5px] text-mist-400">
               <span className="flex shrink-0 items-center gap-1.5">
@@ -339,6 +456,7 @@ export default function App() {
       <JobDrawer
         segment={selectedSegment}
         schedule={selectedSchedule}
+        onRerun={rerunNow}
         onClose={() => {
           setSelectedSegment(null);
           setSelectedSchedule(null);
@@ -349,9 +467,27 @@ export default function App() {
         open={dialogOpen}
         initialStart={dialogStart}
         initialAgent={dialogAgent}
+        initialPrompt={dialogPrompt}
+        initialCwd={dialogCwd}
+        initialName={dialogName}
         onClose={() => setDialogOpen(false)}
         onSubmit={submitJob}
       />
+
+      {templateDrag && (
+        <div
+          className="pointer-events-none fixed z-[70]"
+          style={{ left: templateDrag.x + 12, top: templateDrag.y + 12 }}
+        >
+          <div className="flex items-center gap-1.5 rounded-md border border-brand/50 bg-ink-900 px-2 py-1 text-[10px] font-medium text-brand shadow-xl">
+            <span
+              className="h-1.5 w-1.5 rounded-[2px]"
+              style={{ background: agentById(templateDrag.agent).color }}
+            />
+            {agentById(templateDrag.agent).short} job
+          </div>
+        </div>
+      )}
 
       {toast && (
         <div className="pointer-events-none fixed bottom-5 left-1/2 z-[60] -translate-x-1/2">

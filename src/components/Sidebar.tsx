@@ -6,6 +6,7 @@ import {
   Sparkles,
   Users,
 } from "lucide-react";
+import type { PointerEvent as ReactPointerEvent } from "react";
 import { AGENTS, type Provider } from "../lib/types";
 import { cn } from "../lib/time";
 import { Button } from "@/components/ui/button";
@@ -29,6 +30,7 @@ interface Props {
   counts: Record<string, number>;
   mode: "connecting" | "live" | "demo";
   version?: string;
+  onBeginTemplate?: (agent: Provider, e: ReactPointerEvent) => void;
 }
 
 export function Sidebar({
@@ -39,6 +41,7 @@ export function Sidebar({
   counts,
   mode,
   version,
+  onBeginTemplate,
 }: Props) {
   return (
     <aside className="flex h-full w-[232px] shrink-0 flex-col border-r border-ink-700/70 bg-ink-900">
@@ -141,13 +144,10 @@ export function Sidebar({
           {AGENTS.map((agent) => (
             <div
               key={agent.id}
-              draggable
-              onDragStart={(e) => {
-                e.dataTransfer.setData("application/x-opencal-agent", agent.id);
-                e.dataTransfer.effectAllowed = "copy";
-              }}
+              draggable={false}
+              onPointerDown={(e) => onBeginTemplate?.(agent.id, e)}
               title={`Drag ${agent.name} onto the calendar`}
-              className="flex cursor-grab items-center gap-1.5 rounded-md border border-ink-700 bg-ink-850 px-2 py-1.5 text-[10.5px] text-mist-300 transition-colors hover:border-ink-600 hover:text-white active:cursor-grabbing"
+              className="flex cursor-grab touch-none items-center gap-1.5 rounded-md border border-ink-700 bg-ink-850 px-2 py-1.5 text-[10.5px] text-mist-300 transition-colors hover:border-ink-600 hover:text-white active:cursor-grabbing"
             >
               <span
                 className="h-1.5 w-1.5 shrink-0 rounded-[2px]"

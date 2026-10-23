@@ -76,8 +76,13 @@ approve or deny.
 - **Drag on the grid** to open a pre-filled job dialog.
 - **Drag queued jobs** between days and times — snapped to 15 minutes, with a
   live drop ghost and auto-scroll near the edges.
-- **Quick schedule tray** in the sidebar: drag an agent chip onto the grid to
-  create a job at that slot.
+- **Every block is draggable**: queued jobs move between days/times; any
+  historical session drags into a pre-filled “continue as job” dialog.
+- **Kanban-style quick schedule**: drag an agent chip from the sidebar onto the
+  grid to create a job at that slot (pointer-based, so it works inside the
+  desktop shell where native drag interception can swallow HTML5 DnD).
+- **Live drag ghost**, 15-minute snapping, edge auto-scroll, and a visible
+  “drag any block” hint bar.
 - **Missions**: describe a goal, the planner drafts roles/playbooks/shifts, and
   one approval creates everything.
 - **Roles**: the employee roster — playbooks, models, weekly budgets, spend,

@@ -21,6 +21,9 @@ interface Props {
   open: boolean;
   initialStart: Date | null;
   initialAgent?: Provider;
+  initialPrompt?: string;
+  initialCwd?: string;
+  initialName?: string;
   onClose: () => void;
   onSubmit: (input: NewJobInput) => Promise<void>;
 }
@@ -47,6 +50,9 @@ export function NewJobDialog({
   open,
   initialStart,
   initialAgent = "claude",
+  initialPrompt = "",
+  initialCwd = "~",
+  initialName = "",
   onClose,
   onSubmit,
 }: Props) {
@@ -61,10 +67,10 @@ export function NewJobDialog({
 
   useEffect(() => {
     if (!open) return;
-    setName("");
+    setName(initialName);
     setAgent(initialAgent);
-    setPrompt("");
-    setCwd("~");
+    setPrompt(initialPrompt);
+    setCwd(initialCwd || "~");
     setError(null);
     setBusy(false);
     if (initialStart) {
@@ -74,7 +80,14 @@ export function NewJobDialog({
       setWhenType("next_reset");
       setWhenValue(initialAgent);
     }
-  }, [open, initialStart, initialAgent]);
+  }, [
+    open,
+    initialStart,
+    initialAgent,
+    initialPrompt,
+    initialCwd,
+    initialName,
+  ]);
 
   async function submit(e: FormEvent) {
     e.preventDefault();
